@@ -87,3 +87,59 @@ Database-Administration-Project/
 - Respect Oracle naming conventions and avoid reserved words.
 
 ---
+# Example of the Directory :
+```bash
+📦 Database-Administration-Project/
+│
+├── 📁 docs/
+│   ├── Project_Report.pdf
+│   ├── Presentation_Slides.pptx
+│   ├── README.md
+│   └── Architecture_Diagram.png
+│
+├── 📁 scripts/
+│   ├── 01_create_users_roles.sql
+│   ├── 02_grant_privileges.sql
+│   ├── 03_create_tables.sql
+│   ├── 04_insert_sample_data.sql
+│   ├── 05_create_views.sql
+│   ├── 06_procedures_functions.sql
+│   ├── 07_triggers.sql
+│   ├── 08_transactions_tests.sql
+│   └── 09_cleanup_drop.sql
+│
+├── 📁 plsql/
+│   ├── add_employee_proc.sql
+│   ├── calc_salary_func.sql
+│   ├── prevent_delete_trigger.sql
+│   ├── error_handling_example.sql
+│   └── transaction_demo.sql
+│
+├── 📁 design/
+│   ├── conceptual_model.mcd       # From PowerDesigner
+│   ├── logical_model.ldm
+│   ├── physical_model.pdm
+│   ├── ERD_Diagram.png
+│   └── schema_description.md
+│
+├── 📁 tests/
+│   ├── test_users_privileges.sql
+│   ├── test_procedures.sql
+│   ├── test_triggers.sql
+│   └── test_transactions.sql
+│
+├── 📁 team/
+│   ├── student1_privileges.sql
+│   ├── student2_design.sql
+│   ├── student3_procedures.sql
+│   └── student4_triggers_transactions.sql
+│
+├── 📁 backups/
+│   ├── export_full_database.dmp
+│   ├── export_metadata_only.dmp
+│   └── backup_script.sh
+│
+├── 📄 README.md
+├── 📄 .gitignore
+└── 📄 project_info.txt
+```
