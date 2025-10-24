@@ -78,3 +78,12 @@ Database-Administration-Project/
 4. Never push `.dmp` or `.log` files.
 
 ---
+---
+
+## 🔒 Important Notes
+
+- Do **not modify** other members’ scripts without discussing it first.
+- Keep code clean and consistent.
+- Respect Oracle naming conventions and avoid reserved words.
+
+---
