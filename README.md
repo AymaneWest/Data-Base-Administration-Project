@@ -78,8 +78,3 @@ Database-Administration-Project/
 4. Never push `.dmp` or `.log` files.
 
 ---
-
-## 🚀 How to Run the Project
-
-1. Connect to Oracle as DBA.
-2. Execute the following scripts **in this order**:
