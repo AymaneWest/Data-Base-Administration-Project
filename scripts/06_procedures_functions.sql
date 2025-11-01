@@ -218,8 +218,15 @@ BEGIN
         address = NVL(p_address, address)
     WHERE patron_id = p_patron_id;
     
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('✅ Patron updated successfully');
+EXCEPTION
+    WHEN OTHERS THEN
         ROLLBACK;
         RAISE_APPLICATION_ERROR(-20104, 'Error: ' || SQLERRM);
+END sp_update_patron;
+/
+ 
  -- renouvellemet d'abonnemet
 CREATE OR REPLACE PROCEDURE sp_renew_membership (
     p_patron_id IN NUMBER,
@@ -1282,10 +1289,4 @@ BEGIN
     sp_generate_daily_report(p_branch_id => 1);
 END;
 /
-*/END sp_update_patron;
-/
- 
-    DBMS_OUTPUT.PUT_LINE('✅ Patron updated successfully');
-EXCEPTION
-    WHEN OTHERS THEN
-
+*/
