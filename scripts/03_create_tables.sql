@@ -3,10 +3,28 @@
 -- Oracle SQL Developer - Complete Edition with RBAC
 -- ============================================================================
 -- Description: Complete DDL script with Role-Based Access Control
--- Author: Database Design Project
+-- Author: Aymane (Student 2)
 -- Date: October 2025
 -- ============================================================================
-
+DROP TABLE FINES CASCADE CONSTRAINTS;
+DROP TABLE LOANS CASCADE CONSTRAINTS;
+DROP TABLE RESERVATIONS CASCADE CONSTRAINTS;
+DROP TABLE MATERIAL_GENRES CASCADE CONSTRAINTS;
+DROP TABLE MATERIAL_AUTHORS;
+DROP TABLE COPIES CASCADE CONSTRAINTS;
+DROP TABLE MATERIALS CASCADE CONSTRAINTS;
+DROP TABLE GENRES CASCADE CONSTRAINTS;
+DROP TABLE AUTHORS;
+DROP TABLE PUBLISHERS CASCADE CONSTRAINTS;
+DROP TABLE STAFF CASCADE CONSTRAINTS;
+DROP TABLE PATRONS CASCADE CONSTRAINTS;
+DROP TABLE USERS CASCADE CONSTRAINTS;
+DROP TABLE LIBRARIES CASCADE CONSTRAINTS;
+DROP TABLE PERMISSIONS CASCADE CONSTRAINTS;
+DROP TABLE ROLE_PERMISSIONS CASCADE CONSTRAINTS;
+DROP TABLE BRANCHES CASCADE CONSTRAINTS;
+DROP TABLE ROLES CASCADE CONSTRAINTS;
+DROP TABLE USER_ROLES CASCADE CONSTRAINTS;
 -- ============================================================================
 -- SECTION 1: AUTHENTICATION & AUTHORIZATION TABLES
 -- ============================================================================
@@ -145,7 +163,31 @@ COMMENT ON COLUMN ROLE_PERMISSIONS.granted_by_user_id IS 'User who assigned this
 -- ============================================================================
 -- SECTION 2: LIBRARY OPERATIONAL TABLES
 -- ============================================================================
+/* ======================================================
+   20. CREATE TABLE : LIBRARIES
+   ====================================================== */
+CREATE TABLE LIBRARIES (
+    library_id NUMBER PRIMARY KEY,                            -- Unique ID for each library organization
+    library_name VARCHAR2(150) NOT NULL UNIQUE,               -- Name of the library system (must be unique)
+    established_year NUMBER(4),                               -- Year when the library was founded
+    headquarters_address VARCHAR2(200),                       -- Address of the main administrative office
+    phone VARCHAR2(20),                                       -- General contact phone number
+    email VARCHAR2(100),                                      -- General contact email
+    website VARCHAR2(200),                                    -- Official website (optional)
+    library_description VARCHAR2(500),                        -- Short description or mission statement
+    created_date DATE DEFAULT SYSDATE                         -- Timestamp when the record was created
+);
+COMMENT ON TABLE LIBRARIES IS 'Parent library organizations that own and manage one or more branches.';
 
+COMMENT ON COLUMN LIBRARIES.library_id IS 'Primary key identifying each library organization.';
+COMMENT ON COLUMN LIBRARIES.library_name IS 'Official name of the library system (e.g., "Library X").';
+COMMENT ON COLUMN LIBRARIES.established_year IS 'The year when the library organization was established.';
+COMMENT ON COLUMN LIBRARIES.headquarters_address IS 'Main office address of the library organization.';
+COMMENT ON COLUMN LIBRARIES.phone IS 'Global contact phone number for the organization.';
+COMMENT ON COLUMN LIBRARIES.email IS 'Global contact email for the organization.';
+COMMENT ON COLUMN LIBRARIES.website IS 'Website URL of the library system.';
+COMMENT ON COLUMN LIBRARIES.library_description IS 'Short description or mission statement of the library.';
+COMMENT ON COLUMN LIBRARIES.created_date IS 'Record creation timestamp, defaults to current system date.';
 -- ============================================================================
 -- 6. BRANCHES TABLE - Library Locations
 -- ============================================================================
@@ -167,7 +209,7 @@ CREATE TABLE BRANCHES (
     CONSTRAINT uq_branch_name_per_library UNIQUE (library_id, branch_name), 
         -- Prevents having two branches with the same name under the same library
 
-    CONSTRAINT chk_capacity CHECK (capacity > 0)              -- Ensures branch capacity is a positive number
+    CONSTRAINT chk_branch_capacity CHECK (branch_capacity > 0)              -- Ensures branch capacity is a positive number
 );
 
 -- 🔹 COMMENTING ON TABLE AND COLUMNS
@@ -182,10 +224,6 @@ COMMENT ON COLUMN BRANCHES.email IS 'Branch contact email address.';
 COMMENT ON COLUMN BRANCHES.opening_hours IS 'Branch opening hours (e.g., 08:00–20:00).';
 COMMENT ON COLUMN BRANCHES.branch_capacity IS 'Maximum number of visitors/books the branch can handle at once.';
 COMMENT ON COLUMN BRANCHES.created_date IS 'Date when the branch record was created.';
-COMMENT ON COLUMN BRANCHES.fk_branch_library IS 'Relationship ensuring each branch belongs to one library.';
-COMMENT ON COLUMN BRANCHES.uq_branch_name_per_library IS 'Ensures unique branch names per library.';
-COMMENT ON COLUMN BRANCHES.chk_capacity IS 'Ensures branch capacity value is always positive.';
-
 
 -- ============================================================================
 -- 8. PATRONS TABLE - Library Members
@@ -265,13 +303,6 @@ COMMENT ON COLUMN PATRONS.registered_branch_id IS 'Foreign key linking to BRANCH
 COMMENT ON COLUMN PATRONS.account_status IS 'Current state of the account: Active, Expired, Suspended, or Blocked.';
 COMMENT ON COLUMN PATRONS.total_fines_owed IS 'Total amount of unpaid fines or fees owed by the patron.';
 COMMENT ON COLUMN PATRONS.max_borrow_limit IS 'Maximum number of books or materials a patron can borrow simultaneously.';
-COMMENT ON CONSTRAINT fk_patron_branch IS 'Ensures each patron is registered under an existing library branch.';
-COMMENT ON CONSTRAINT chk_membership_type IS 'Prevents invalid membership types; enforces a controlled vocabulary.';
-COMMENT ON CONSTRAINT chk_account_status IS 'Ensures account status is one of the predefined allowed values.';
-COMMENT ON CONSTRAINT chk_fines_positive IS 'Prevents negative fine amounts.';
-COMMENT ON CONSTRAINT chk_borrow_limit IS 'Ensures borrowing limit is always positive.';
-
-
 
 -- ============================================================================
 -- 9. STAFF TABLE - Library Employees
@@ -333,7 +364,7 @@ CREATE TABLE AUTHORS (
     author_id NUMBER PRIMARY KEY,
     first_name VARCHAR2(50),
     last_name VARCHAR2(50) NOT NULL,
-    full_name VARCHAR2(100) GENERATED ALWAYS AS (first_name || ' ' || last_name),
+    full_name VARCHAR2(150) GENERATED ALWAYS AS (first_name || ' ' || last_name),
     biography CLOB,
     birth_date DATE,
     death_date DATE,
@@ -349,7 +380,7 @@ COMMENT ON TABLE AUTHORS IS 'Authors and creators of library materials';
 CREATE TABLE GENRES (
     genre_id NUMBER PRIMARY KEY,
     genre_name VARCHAR2(50) NOT NULL UNIQUE,
-    description VARCHAR2(500),
+    genre_description VARCHAR2(500),
     parent_genre_id NUMBER,
     CONSTRAINT fk_parent_genre FOREIGN KEY (parent_genre_id) REFERENCES GENRES(genre_id)
 );
@@ -405,10 +436,8 @@ COMMENT ON COLUMN MATERIALS.available_copies IS 'Number of copies currently avai
 -- ============================================================================
 -- 14. COPIES TABLE - Physical/Digital Instances
 -- ============================================================================
-CREATE TABLE COPIES (
 -- Table: COPIES
 -- Description: Represents physical or digital copies of each material, distributed across library branches.
-
 CREATE TABLE COPIES (
     copy_id NUMBER PRIMARY KEY, -- Unique identifier for each copy
     material_id NUMBER NOT NULL, -- Material to which this copy belongs
@@ -584,619 +613,6 @@ CREATE TABLE MATERIAL_GENRES (
 
 COMMENT ON TABLE MATERIAL_GENRES IS 'Junction table linking materials to genres (M:N relationship)';
 
-/* ======================================================
-   20. CREATE TABLE : LIBRARIES
-   ====================================================== */
-CREATE TABLE LIBRARIES (
-    library_id NUMBER PRIMARY KEY,                            -- Unique ID for each library organization
-    library_name VARCHAR2(150) NOT NULL UNIQUE,               -- Name of the library system (must be unique)
-    established_year NUMBER(4),                               -- Year when the library was founded
-    headquarters_address VARCHAR2(200),                       -- Address of the main administrative office
-    phone VARCHAR2(20),                                       -- General contact phone number
-    email VARCHAR2(100),                                      -- General contact email
-    website VARCHAR2(200),                                    -- Official website (optional)
-    library_description VARCHAR2(500),                        -- Short description or mission statement
-    created_date DATE DEFAULT SYSDATE                         -- Timestamp when the record was created
-);
-COMMENT ON TABLE LIBRARIES IS 'Parent library organizations that own and manage one or more branches.';
-
-COMMENT ON COLUMN LIBRARIES.library_id IS 'Primary key identifying each library organization.';
-COMMENT ON COLUMN LIBRARIES.library_name IS 'Official name of the library system (e.g., "Library X").';
-COMMENT ON COLUMN LIBRARIES.established_year IS 'The year when the library organization was established.';
-COMMENT ON COLUMN LIBRARIES.headquarters_address IS 'Main office address of the library organization.';
-COMMENT ON COLUMN LIBRARIES.phone IS 'Global contact phone number for the organization.';
-COMMENT ON COLUMN LIBRARIES.email IS 'Global contact email for the organization.';
-COMMENT ON COLUMN LIBRARIES.website IS 'Website URL of the library system.';
-COMMENT ON COLUMN LIBRARIES.description IS 'Short description or mission statement of the library.';
-COMMENT ON COLUMN LIBRARIES.created_date IS 'Record creation timestamp, defaults to current system date.';
-
--- ============================================================================
--- INDEXES FOR PERFORMANCE OPTIMIZATION
--- ============================================================================
-
--- User indexes
-CREATE INDEX idx_user_username ON USERS(username);
-CREATE INDEX idx_user_email ON USERS(email);
-CREATE INDEX idx_user_active ON USERS(is_active);
-
--- Role and Permission indexes
-CREATE INDEX idx_role_code ON ROLES(role_code);
-CREATE INDEX idx_permission_code ON PERMISSIONS(permission_code);
-CREATE INDEX idx_permission_module ON PERMISSIONS(module);
-
--- Patron indexes
-CREATE INDEX idx_patron_user ON PATRONS(user_id);
-CREATE INDEX idx_patron_card ON PATRONS(card_number);
-CREATE INDEX idx_patron_email ON PATRONS(email);
-CREATE INDEX idx_patron_status ON PATRONS(account_status);
-CREATE INDEX idx_patron_branch ON PATRONS(registered_branch_id);
-
--- Staff indexes
-CREATE INDEX idx_staff_user ON STAFF(user_id);
-CREATE INDEX idx_staff_branch ON STAFF(branch_id);
-
--- Material indexes
-CREATE INDEX idx_material_title ON MATERIALS(UPPER(title));
-CREATE INDEX idx_material_type ON MATERIALS(material_type);
-CREATE INDEX idx_material_isbn ON MATERIALS(isbn);
-CREATE INDEX idx_material_publisher ON MATERIALS(publisher_id);
-
--- Copy indexes
-CREATE INDEX idx_copy_barcode ON COPIES(barcode);
-CREATE INDEX idx_copy_material ON COPIES(material_id);
-CREATE INDEX idx_copy_branch ON COPIES(branch_id);
-CREATE INDEX idx_copy_status ON COPIES(copy_status);
-
--- Loan indexes
-CREATE INDEX idx_loan_patron ON LOANS(patron_id);
-CREATE INDEX idx_loan_copy ON LOANS(copy_id);
-CREATE INDEX idx_loan_status ON LOANS(loan_status);
-CREATE INDEX idx_loan_due_date ON LOANS(due_date);
-
--- Reservation indexes
-CREATE INDEX idx_reservation_material ON RESERVATIONS(material_id);
-CREATE INDEX idx_reservation_patron ON RESERVATIONS(patron_id);
-CREATE INDEX idx_reservation_status ON RESERVATIONS(reservation_status);
-
--- Fine indexes
-CREATE INDEX idx_fine_patron ON FINES(patron_id);
-CREATE INDEX idx_fine_loan ON FINES(loan_id);
-CREATE INDEX idx_fine_status ON FINES(fine_status);
-
--- ============================================================================
--- SEQUENCES FOR AUTO-INCREMENT PRIMARY KEYS
--- ============================================================================
-
-CREATE SEQUENCE seq_user_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_role_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_permission_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_branch_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_plan_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_patron_id START WITH 1001 INCREMENT BY 1;
-CREATE SEQUENCE seq_staff_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_publisher_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_author_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_genre_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_material_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_copy_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_loan_id START WITH 10001 INCREMENT BY 1;
-CREATE SEQUENCE seq_reservation_id START WITH 1 INCREMENT BY 1;
-CREATE SEQUENCE seq_fine_id START WITH 1 INCREMENT BY 1;
-
--- ============================================================================
--- SAMPLE DATA: ROLES
--- ============================================================================
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'SYSADMIN', 'System Administrator', 'Full system access - IT administrators', 10, 'Y');
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'LIB_MANAGER', 'Library Manager', 'Branch management and oversight', 8, 'Y');
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'LIBRARIAN', 'Librarian', 'Catalog management and patron services', 5, 'Y');
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'CIRCULATION', 'Circulation Staff', 'Check-in/check-out operations', 3, 'Y');
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'PATRON', 'Patron', 'Library member with borrowing privileges', 1, 'Y');
-
-INSERT INTO ROLES (role_id, role_code, role_name, role_description, role_level, is_active)
-VALUES (seq_role_id.NEXTVAL, 'GUEST', 'Guest', 'View-only access to public catalog', 0, 'Y');
-
--- ============================================================================
--- SAMPLE DATA: PERMISSIONS
--- ============================================================================
-
--- Circulation permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'CHECKOUT_ITEM', 'Check Out Item', 
-    'Can process material checkouts', 'Circulation', 'Loan', 'Create', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'CHECKIN_ITEM', 'Check In Item', 
-    'Can process material returns', 'Circulation', 'Loan', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'RENEW_LOAN', 'Renew Loan', 
-    'Can renew patron loans', 'Circulation', 'Loan', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_LOANS', 'View Loans', 
-    'Can view loan records', 'Circulation', 'Loan', 'Read', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'RESERVE_ITEM', 'Reserve Item', 
-    'Can place holds on materials', 'Circulation', 'Reservation', 'Create', 'Y', SYSDATE);
-
--- Catalog permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'ADD_MATERIAL', 'Add Material', 
-    'Can add new materials to catalog', 'Catalog', 'Material', 'Create', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'EDIT_MATERIAL', 'Edit Material', 
-    'Can modify material records', 'Catalog', 'Material', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'DELETE_MATERIAL', 'Delete Material', 
-    'Can remove materials from catalog', 'Catalog', 'Material', 'Delete', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_CATALOG', 'View Catalog', 
-    'Can search and view catalog', 'Catalog', 'Material', 'Read', 'Y', SYSDATE);
-
--- Patron management permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'ADD_PATRON', 'Add Patron', 
-    'Can register new patrons', 'Patrons', 'Patron', 'Create', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'EDIT_PATRON', 'Edit Patron', 
-    'Can modify patron records', 'Patrons', 'Patron', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_PATRON', 'View Patron', 
-    'Can view patron information', 'Patrons', 'Patron', 'Read', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'SUSPEND_PATRON', 'Suspend Patron', 
-    'Can suspend patron accounts', 'Patrons', 'Patron', 'Update', 'Y', SYSDATE);
-
--- Fine management permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'ASSESS_FINE', 'Assess Fine', 
-    'Can create fines for patrons', 'Fines', 'Fine', 'Create', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'WAIVE_FINE', 'Waive Fine', 
-    'Can waive patron fines', 'Fines', 'Fine', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'PROCESS_PAYMENT', 'Process Payment', 
-    'Can accept fine payments', 'Fines', 'Fine', 'Update', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_FINES', 'View Fines', 
-    'Can view fine records', 'Fines', 'Fine', 'Read', 'Y', SYSDATE);
-
--- Report permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_REPORTS', 'View Reports', 
-    'Can access system reports', 'Reports', 'Report', 'Read', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'GENERATE_REPORTS', 'Generate Reports', 
-    'Can create and export reports', 'Reports', 'Report', 'Create', 'Y', SYSDATE);
-
--- Administration permissions
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'MANAGE_USERS', 'Manage Users', 
-    'Can create and edit user accounts', 'Administration', 'User', 'All', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'MANAGE_ROLES', 'Manage Roles', 
-    'Can manage roles and permissions', 'Administration', 'Role', 'All', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'MANAGE_BRANCHES', 'Manage Branches', 
-    'Can manage branch information', 'Administration', 'Branch', 'All', 'Y', SYSDATE);
-
-INSERT INTO PERMISSIONS VALUES (seq_permission_id.NEXTVAL, 'VIEW_AUDIT_LOG', 'View Audit Log', 
-    'Can view system audit logs', 'System', 'AuditLog', 'Read', 'Y', SYSDATE);
-
--- ============================================================================
--- SAMPLE DATA: ROLE-PERMISSION ASSIGNMENTS
--- ============================================================================
-
--- System Administrator - ALL permissions
-INSERT INTO ROLE_PERMISSIONS 
-SELECT 1, permission_id, SYSDATE, NULL 
-FROM PERMISSIONS WHERE is_active = 'Y';
-
--- Library Manager - Most permissions except system admin
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 1, SYSDATE, NULL);  -- CHECKOUT_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 2, SYSDATE, NULL);  -- CHECKIN_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 3, SYSDATE, NULL);  -- RENEW_LOAN
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 4, SYSDATE, NULL);  -- VIEW_LOANS
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 5, SYSDATE, NULL);  -- RESERVE_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 6, SYSDATE, NULL);  -- ADD_MATERIAL
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 7, SYSDATE, NULL);  -- EDIT_MATERIAL
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 8, SYSDATE, NULL);  -- DELETE_MATERIAL
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 9, SYSDATE, NULL);  -- VIEW_CATALOG
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 10, SYSDATE, NULL); -- ADD_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 11, SYSDATE, NULL); -- EDIT_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 12, SYSDATE, NULL); -- VIEW_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 13, SYSDATE, NULL); -- SUSPEND_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 14, SYSDATE, NULL); -- ASSESS_FINE
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 15, SYSDATE, NULL); -- WAIVE_FINE
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 16, SYSDATE, NULL); -- PROCESS_PAYMENT
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 17, SYSDATE, NULL); -- VIEW_FINES
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 18, SYSDATE, NULL); -- VIEW_REPORTS
-INSERT INTO ROLE_PERMISSIONS VALUES (2, 19, SYSDATE, NULL); -- GENERATE_REPORTS
-
--- Librarian - Catalog and circulation
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 1, SYSDATE, NULL);  -- CHECKOUT_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 2, SYSDATE, NULL);  -- CHECKIN_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 3, SYSDATE, NULL);  -- RENEW_LOAN
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 4, SYSDATE, NULL);  -- VIEW_LOANS
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 5, SYSDATE, NULL);  -- RESERVE_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 6, SYSDATE, NULL);  -- ADD_MATERIAL
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 7, SYSDATE, NULL);  -- EDIT_MATERIAL
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 9, SYSDATE, NULL);  -- VIEW_CATALOG
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 10, SYSDATE, NULL); -- ADD_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 11, SYSDATE, NULL); -- EDIT_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 12, SYSDATE, NULL); -- VIEW_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 14, SYSDATE, NULL); -- ASSESS_FINE
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 16, SYSDATE, NULL); -- PROCESS_PAYMENT
-INSERT INTO ROLE_PERMISSIONS VALUES (3, 17, SYSDATE, NULL); -- VIEW_FINES
-
--- Circulation Staff - Basic circulation only
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 1, SYSDATE, NULL);  -- CHECKOUT_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 2, SYSDATE, NULL);  -- CHECKIN_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 3, SYSDATE, NULL);  -- RENEW_LOAN
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 4, SYSDATE, NULL);  -- VIEW_LOANS
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 5, SYSDATE, NULL);  -- RESERVE_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 9, SYSDATE, NULL);  -- VIEW_CATALOG
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 12, SYSDATE, NULL); -- VIEW_PATRON
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 16, SYSDATE, NULL); -- PROCESS_PAYMENT
-INSERT INTO ROLE_PERMISSIONS VALUES (4, 17, SYSDATE, NULL); -- VIEW_FINES
-
--- Patron - Self-service only
-INSERT INTO ROLE_PERMISSIONS VALUES (5, 5, SYSDATE, NULL);  -- RESERVE_ITEM
-INSERT INTO ROLE_PERMISSIONS VALUES (5, 9, SYSDATE, NULL);  -- VIEW_CATALOG
-
--- Guest - View catalog only
-INSERT INTO ROLE_PERMISSIONS VALUES (6, 9, SYSDATE, NULL);  -- VIEW_CATALOG
-
--- ============================================================================
--- SAMPLE DATA: MEMBERSHIP PLANS
--- ============================================================================
-
-INSERT INTO MEMBERSHIP_PLANS (plan_id, plan_code, plan_name, plan_description, 
-    annual_fee, max_borrow_limit, max_reservation_limit, loan_period_days, 
-    renewal_limit, can_borrow_new_releases, priority_reservation, 
-    fine_discount_percentage, digital_content_access, is_active)
-VALUES (seq_plan_id.NEXTVAL, 'STANDARD', 'Standard Membership', 
-    'Free basic membership for all patrons',
-    0.00, 10, 5, 21, 2, 'N', 'N', 0, 'Y', 'Y');
-
-INSERT INTO MEMBERSHIP_PLANS (plan_id, plan_code, plan_name, plan_description, 
-    annual_fee, max_borrow_limit, max_reservation_limit, loan_period_days, 
-    renewal_limit, can_borrow_new_releases, priority_reservation, 
-    fine_discount_percentage, digital_content_access, is_active)
-VALUES (seq_plan_id.NEXTVAL, 'PREMIUM', 'Premium Membership', 
-    'Enhanced membership with exclusive benefits',
-    50.00, 20, 10, 28, 3, 'Y', 'Y', 10.00, 'Y', 'Y');
-
-INSERT INTO MEMBERSHIP_PLANS (plan_id, plan_code, plan_name, plan_description, 
-    annual_fee, max_borrow_limit, max_reservation_limit, loan_period_days, 
-    renewal_limit, can_borrow_new_releases, priority_reservation, 
-    fine_discount_percentage, digital_content_access, is_active)
-VALUES (seq_plan_id.NEXTVAL, 'STUDENT', 'Student Membership', 
-    'Discounted membership for students with valid ID',
-    10.00, 15, 7, 21, 2, 'Y', 'N', 0, 'Y', 'Y');
-
-INSERT INTO MEMBERSHIP_PLANS (plan_id, plan_code, plan_name, plan_description, 
-    annual_fee, max_borrow_limit, max_reservation_limit, loan_period_days, 
-    renewal_limit, can_borrow_new_releases, priority_reservation, 
-    fine_discount_percentage, digital_content_access, is_active)
-VALUES (seq_plan_id.NEXTVAL, 'CHILD', 'Child Membership', 
-    'Free membership for children under 13',
-    0.00, 5, 3, 14, 1, 'Y', 'N', 0, 'N', 'Y');
-
-INSERT INTO MEMBERSHIP_PLANS (plan_id, plan_code, plan_name, plan_description, 
-    annual_fee, max_borrow_limit, max_reservation_limit, loan_period_days, 
-    renewal_limit, can_borrow_new_releases, priority_reservation, 
-    fine_discount_percentage, digital_content_access, is_active)
-VALUES (seq_plan_id.NEXTVAL, 'VIP', 'VIP Membership', 
-    'Exclusive membership for library donors and sponsors',
-    250.00, 50, 20, 42, 5, 'Y', 'Y', 25.00, 'Y', 'Y');
-
--- ============================================================================
--- SAMPLE DATA: BRANCHES
--- ============================================================================
-
-INSERT INTO BRANCHES (branch_id, branch_name, address, phone, email, opening_hours, capacity)
-VALUES (seq_branch_id.NEXTVAL, 'Downtown Main Library', '123 Main St, City Center', 
-    '555-0101', 'downtown@library.org', 'Mon-Fri: 9AM-8PM, Sat-Sun: 10AM-6PM', 200);
-
-INSERT INTO BRANCHES (branch_id, branch_name, address, phone, email, opening_hours, capacity)
-VALUES (seq_branch_id.NEXTVAL, 'Riverside Branch', '456 River Rd, Riverside', 
-    '555-0102', 'riverside@library.org', 'Mon-Fri: 10AM-6PM, Sat: 10AM-4PM', 100);
-
-INSERT INTO BRANCHES (branch_id, branch_name, address, phone, email, opening_hours, capacity)
-VALUES (seq_branch_id.NEXTVAL, 'Northside Branch', '789 North Ave, Northside', 
-    '555-0103', 'northside@library.org', 'Mon-Fri: 10AM-6PM, Sat: 10AM-4PM', 80);
-
--- ============================================================================
--- SAMPLE DATA: GENRES
--- ============================================================================
-
-INSERT INTO GENRES (genre_id, genre_name, description) VALUES 
-    (seq_genre_id.NEXTVAL, 'Fiction', 'Literary works of imaginative narration');
-
-INSERT INTO GENRES (genre_id, genre_name, description) VALUES 
-    (seq_genre_id.NEXTVAL, 'Non-Fiction', 'Factual and informative works');
-
-INSERT INTO GENRES (genre_id, genre_name, description) VALUES 
-    (seq_genre_id.NEXTVAL, 'Mystery', 'Detective and crime fiction');
-
-INSERT INTO GENRES (genre_id, genre_name, description) VALUES 
-    (seq_genre_id.NEXTVAL, 'Science Fiction', 'Speculative fiction based on science');
-
-INSERT INTO GENRES (genre_id, genre_name, description) VALUES 
-    (seq_genre_id.NEXTVAL, 'Biography', 'Life stories of real people');
-
--- ============================================================================
--- VIEWS FOR COMMON QUERIES
--- ============================================================================
-
--- View: User with their roles
-CREATE OR REPLACE VIEW v_user_roles AS
-SELECT 
-    u.user_id,
-    u.username,
-    u.email,
-    u.first_name || ' ' || u.last_name AS full_name,
-    u.is_active AS user_active,
-    r.role_id,
-    r.role_code,
-    r.role_name,
-    r.role_level,
-    ur.assigned_date,
-    ur.is_active AS role_active
-FROM USERS u
-JOIN USER_ROLES ur ON u.user_id = ur.user_id
-JOIN ROLES r ON ur.role_id = r.role_id
-WHERE u.is_active = 'Y' AND ur.is_active = 'Y';
-
--- View: User permissions (flattened)
-CREATE OR REPLACE VIEW v_user_permissions AS
-SELECT DISTINCT
-    u.user_id,
-    u.username,
-    u.email,
-    p.permission_id,
-    p.permission_code,
-    p.permission_name,
-    p.module,
-    p.resource,
-    p.action
-FROM USERS u
-JOIN USER_ROLES ur ON u.user_id = ur.user_id
-JOIN ROLES r ON ur.role_id = r.role_id
-JOIN ROLE_PERMISSIONS rp ON r.role_id = rp.role_id
-JOIN PERMISSIONS p ON rp.permission_id = p.permission_id
-WHERE u.is_active = 'Y' 
-  AND ur.is_active = 'Y' 
-  AND r.is_active = 'Y' 
-  AND p.is_active = 'Y';
-
--- View: Overdue loans
-CREATE OR REPLACE VIEW v_overdue_loans AS
-SELECT 
-    l.loan_id,
-    l.checkout_date,
-    l.due_date,
-    TRUNC(SYSDATE - l.due_date) AS days_overdue,
-    p.patron_id,
-    p.first_name || ' ' || p.last_name AS patron_name,
-    p.email AS patron_email,
-    p.card_number,
-    m.title AS material_title,
-    m.material_type,
-    c.barcode AS copy_barcode,
-    b.branch_name
-FROM LOANS l
-JOIN PATRONS p ON l.patron_id = p.patron_id
-JOIN COPIES c ON l.copy_id = c.copy_id
-JOIN MATERIALS m ON c.material_id = m.material_id
-JOIN BRANCHES b ON c.branch_id = b.branch_id
-WHERE l.return_date IS NULL 
-  AND l.due_date < SYSDATE
-  AND l.loan_status = 'Active';
-
--- View: Material availability
-CREATE OR REPLACE VIEW v_material_availability AS
-SELECT 
-    m.material_id,
-    m.title,
-    m.material_type,
-    m.total_copies,
-    m.available_copies,
-    COUNT(r.reservation_id) AS reservations_count,
-    CASE 
-        WHEN m.available_copies > 0 THEN 'Available'
-        WHEN COUNT(r.reservation_id) > 0 THEN 'Reserved - Queue: ' || COUNT(r.reservation_id)
-        ELSE 'All Checked Out'
-    END AS availability_status
-FROM MATERIALS m
-LEFT JOIN RESERVATIONS r ON m.material_id = r.material_id 
-    AND r.reservation_status = 'Pending'
-GROUP BY m.material_id, m.title, m.material_type, m.total_copies, m.available_copies;
-
--- View: Patron statistics
-CREATE OR REPLACE VIEW v_patron_statistics AS
-SELECT 
-    p.patron_id,
-    p.first_name || ' ' || p.last_name AS patron_name,
-    p.card_number,
-    p.account_status,
-    mp.plan_name,
-    COUNT(l.loan_id) AS total_loans,
-    SUM(CASE WHEN l.loan_status = 'Active' THEN 1 ELSE 0 END) AS active_loans,
-    SUM(CASE WHEN l.loan_status = 'Overdue' THEN 1 ELSE 0 END) AS overdue_loans,
-    p.total_fines_owed,
-    COUNT(r.reservation_id) AS active_reservations
-FROM PATRONS p
-LEFT JOIN MEMBERSHIP_PLANS mp ON p.plan_id = mp.plan_id
-LEFT JOIN LOANS l ON p.patron_id = l.patron_id
-LEFT JOIN RESERVATIONS r ON p.patron_id = r.patron_id 
-    AND r.reservation_status IN ('Pending', 'Ready')
-GROUP BY p.patron_id, p.first_name, p.last_name, p.card_number, 
-         p.account_status, mp.plan_name, p.total_fines_owed;
-
--- ============================================================================
--- UTILITY FUNCTIONS
--- ============================================================================
-
--- Function: Check if user has permission
-CREATE OR REPLACE FUNCTION fn_user_has_permission (
-    p_user_id IN NUMBER,
-    p_permission_code IN VARCHAR2
-) RETURN VARCHAR2 IS
-    v_count NUMBER;
-BEGIN
-    SELECT COUNT(*)
-    INTO v_count
-    FROM v_user_permissions
-    WHERE user_id = p_user_id
-      AND permission_code = p_permission_code;
-    
-    IF v_count > 0 THEN
-        RETURN 'Y';
-    ELSE
-        RETURN 'N';
-    END IF;
-EXCEPTION
-    WHEN OTHERS THEN
-        RETURN 'N';
-END;
-/
-
--- Function: Get patron's effective borrow limit
-CREATE OR REPLACE FUNCTION fn_patron_borrow_limit (
-    p_patron_id IN NUMBER
-) RETURN NUMBER IS
-    v_limit NUMBER;
-BEGIN
-    SELECT COALESCE(p.max_borrow_limit, mp.max_borrow_limit)
-    INTO v_limit
-    FROM PATRONS p
-    JOIN MEMBERSHIP_PLANS mp ON p.plan_id = mp.plan_id
-    WHERE p.patron_id = p_patron_id;
-    
-    RETURN v_limit;
-EXCEPTION
-    WHEN NO_DATA_FOUND THEN
-        RETURN 10; -- Default
-    WHEN OTHERS THEN
-        RETURN 10;
-END;
-/
-
--- ============================================================================
--- STORED PROCEDURES
--- ============================================================================
-
--- Procedure: Create new user with role
-CREATE OR REPLACE PROCEDURE sp_create_user (
-    p_username IN VARCHAR2,
-    p_email IN VARCHAR2,
-    p_password_hash IN VARCHAR2,
-    p_first_name IN VARCHAR2,
-    p_last_name IN VARCHAR2,
-    p_role_code IN VARCHAR2,
-    p_created_by_user_id IN NUMBER DEFAULT NULL,
-    p_new_user_id OUT NUMBER
-) AS
-    v_role_id NUMBER;
-BEGIN
-    -- Get role ID
-    SELECT role_id INTO v_role_id
-    FROM ROLES
-    WHERE role_code = p_role_code AND is_active = 'Y';
-    
-    -- Create user
-    INSERT INTO USERS (user_id, username, email, password_hash, first_name, last_name, 
-                       is_active, created_by_user_id)
-    VALUES (seq_user_id.NEXTVAL, p_username, p_email, p_password_hash, 
-            p_first_name, p_last_name, 'Y', p_created_by_user_id)
-    RETURNING user_id INTO p_new_user_id;
-    
-    -- Assign role
-    INSERT INTO USER_ROLES (user_id, role_id, assigned_by_user_id)
-    VALUES (p_new_user_id, v_role_id, p_created_by_user_id);
-    
-    COMMIT;
-    
-    DBMS_OUTPUT.PUT_LINE('User created successfully. User ID: ' || p_new_user_id);
-EXCEPTION
-    WHEN DUP_VAL_ON_INDEX THEN
-        ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20001, 'Username or email already exists');
-    WHEN NO_DATA_FOUND THEN
-        ROLLBACK;
-        RAISE_APPLICATION_ERROR(-20002, 'Role not found: ' || p_role_code);
-    WHEN OTHERS THEN
-        ROLLBACK;
-        RAISE;
-END;
-/
-
--- Procedure: Process fine payment
-CREATE OR REPLACE PROCEDURE sp_pay_fine (
-    p_fine_id IN NUMBER,
-    p_payment_amount IN NUMBER,
-    p_payment_method IN VARCHAR2
-) AS
-    v_current_balance NUMBER(10,2);
-    v_patron_id NUMBER;
-BEGIN
-    -- Get current balance and patron
-    SELECT amount_due - amount_paid, patron_id 
-    INTO v_current_balance, v_patron_id
-    FROM FINES
-    WHERE fine_id = p_fine_id;
-    
-    -- Validate payment
-    IF p_payment_amount <= 0 THEN
-        RAISE_APPLICATION_ERROR(-20003, 'Payment amount must be positive');
-    END IF;
-    
-    IF p_payment_amount > v_current_balance THEN
-        RAISE_APPLICATION_ERROR(-20004, 'Payment exceeds balance due');
-    END IF;
-    
-    -- Update fine
-    UPDATE FINES
-    SET amount_paid = amount_paid + p_payment_amount,
-        payment_method = p_payment_method,
-        fine_status = CASE 
-            WHEN (amount_paid + p_payment_amount) >= amount_due THEN 'Paid'
-            ELSE 'Partially Paid'
-        END,
-        payment_date = CASE 
-            WHEN (amount_paid + p_payment_amount) >= amount_due THEN SYSDATE
-            ELSE payment_date
-        END
-    WHERE fine_id = p_fine_id;
-    
-    -- Update patron's total fines
-    UPDATE PATRONS
-    SET total_fines_owed = GREATEST(0, total_fines_owed - p_payment_amount)
-    WHERE patron_id = v_patron_id;
-    
-    COMMIT;
-    
-    DBMS_OUTPUT.PUT_LINE('Payment processed. Remaining balance:  || 
-        TO_CHAR(v_current_balance - p_payment_amount, '999.99'));
-EXCEPTION
-    WHEN OTHERS THEN
-        ROLLBACK;
-        RAISE;
-END;
-/
-
-COMMIT;
-
 -- ============================================================================
 -- END OF SCRIPT
--- ============================================================================
--- Usage Instructions:
--- 1. Run this complete script in Oracle SQL Developer
--- 2. Default admin login would need to be created separately
--- 3. Use sp_create_user to create new users with roles
--- 4. Use fn_user_has_permission to check permissions in application
--- 5. Views provide ready-to-use queries for common operations
 -- ============================================================================
