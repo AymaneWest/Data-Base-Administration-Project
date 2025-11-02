@@ -93,7 +93,7 @@ Ce package centralise toutes les constantes de configuration utilisées dans les
 
 # ✅ Tests 
 Exécuter :
-   ## sqlplus user/pass @tests/test_procedures.sql
+   # sqlplus user/pass @tests/test_procedures.sql
 
 # 📊 Statut du module
    Code complet et documenté
