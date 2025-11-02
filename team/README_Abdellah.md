@@ -77,12 +77,13 @@ Ce package centralise toutes les constantes de configuration utilisées dans les
 | `sp_assess_fine` | Crée une amende manuelle (perte, dégradation, etc.). |
 
 # Batch Procedures (Automatisation)
-| Procédure                          | Description                                             |
-| ---------------------------------- | ------------------------------------------------------- |
-| `sp_process_overdue_notifications` | Envoie les notifications pour retards.                  |
-| `sp_expire_memberships`            | Expire automatiquement les abonnements échus.           |
-| `sp_cleanup_expired_reservations`  | Supprime les réservations expirées.                     |
-| `sp_generate_daily_report`         | Génère un rapport journalier (prêts, retours, amendes). |
+| Procédure                              | Description                                                                                                                                                                                       |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`sp_process_overdue_notifications`** | Parcourt tous les prêts dont la date d’échéance est dépassée et envoie une notification de retard au lecteur concerné. Peut aussi appliquer automatiquement l’état “Overdue” aux prêts concernés. |
+| **`sp_expire_memberships`**            | Identifie les adhésions arrivées à expiration (`membership_expiry < SYSDATE`) et change leur statut de compte en `Expired`. Cela empêche tout nouvel emprunt jusqu’au renouvellement.             |
+| **`sp_cleanup_expired_reservations`**  | Supprime ou marque comme `Expired` toutes les réservations dont la `pickup_deadline` est dépassée, afin de libérer les exemplaires bloqués inutilement.                                           |
+| **`sp_generate_daily_report`**         | Produit un rapport global quotidien contenant le nombre total de prêts, retours, réservations, et amendes générées pendant la journée. Peut être utilisé pour le reporting interne.               |
+
 
 # 🧩 Dépendances
 1 - 01_create_users_roles.sql – création des utilisateurs et rôles (Ilyass)
