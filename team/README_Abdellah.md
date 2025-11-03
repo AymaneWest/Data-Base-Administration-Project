@@ -40,43 +40,48 @@ Ce package centralise toutes les constantes de configuration utilisées dans les
 | `fn_check_patron_eligibility(p_patron_id, p_error_message)` | Vérifie éligibilité      | Vérifie statut actif, dettes, et limites d’emprunt.       |
 
 # Patron Management Procedures
-| Procédure              | Description                                               |
-| ---------------------- | --------------------------------------------------------- |
-| `sp_add_patron`        | Ajoute un nouveau membre avec date d’expiration calculée. |
-| `sp_update_patron`     | Met à jour les coordonnées d’un membre.                   |
-| `sp_renew_membership`  | Renouvelle l’abonnement pour 12 mois supplémentaires.     |
-| `sp_suspend_patron`    | Suspend un membre et met à jour son statut.               |
-| `sp_reactivate_patron` | Réactive un membre après paiement des dettes.             |
+| Procédure              | Description                                                                                                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sp_add_patron`        | Ajoute un nouveau membre dans la base. Calcule automatiquement la date d’expiration (12 mois après l’inscription) et fixe la limite d’emprunt selon le type d’abonnement. Le compte est créé actif sans amendes.                |
+| `sp_update_patron`     | Met à jour les coordonnées d’un membre (email, téléphone, adresse). Si un champ n’est pas renseigné, l’ancienne valeur est conservée. Vérifie que le membre existe avant modification.                                          |
+| `sp_renew_membership`  | Renouvelle l’abonnement d’un membre pour 12 mois supplémentaires. Refuse le renouvellement si le compte est bloqué ou s’il reste des amendes impayées. Prolonge depuis la date d’expiration actuelle si elle est encore valide. |
+| `sp_suspend_patron`    | Suspend un membre en changeant son statut à `Suspended`. Refuse si le compte est déjà suspendu ou bloqué. Enregistre la raison de la suspension.                                                                                |
+| `sp_reactivate_patron` | Réactive un membre après le paiement de toutes ses dettes. Le statut passe à `Active` si le compte n’est plus bloqué et qu’aucune amende n’est due.                                                                             |
+
 
 # Circulation Procedures (Loans)
-| Procédure              | Description                                                    |
-| ---------------------- | -------------------------------------------------------------- |
-| `sp_checkout_item`     | Enregistre un emprunt (prêt d’un exemplaire).                  |
-| `sp_checkin_item`      | Enregistre un retour et calcule l’amende éventuelle.           |
-| `sp_renew_loan`        | Prolonge la durée du prêt si conditions remplies.              |
-| `sp_declare_item_lost` | Déclare un exemplaire perdu et crée une amende correspondante. |
+| Procédure              | Description                                                                                                                                                                                          |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sp_checkout_item`     | Enregistre un emprunt pour un membre éligible. Vérifie que la copie est disponible, calcule la date de retour selon le type d’abonnement, et met à jour les tables `LOANS`, `COPIES` et `MATERIALS`. |
+| `sp_checkin_item`      | Enregistre le retour d’un exemplaire. Calcule automatiquement l’amende de retard si nécessaire, met à jour le prêt comme “Returned” et rend la copie disponible.                                     |
+| `sp_renew_loan`        | Prolonge la durée d’un prêt actif. Vérifie que le nombre maximum de renouvellements (3) n’est pas atteint, qu’aucune réservation n’existe et qu’aucune amende n’est due.                             |
+| `sp_declare_item_lost` | Déclare une copie perdue et crée une amende correspondant au coût de remplacement. Le prêt est marqué comme “Lost” et la copie est retirée du stock disponible.                                      |
+
 
 # Material Management Procedures
-| Procédure            | Description                                                      |
-| -------------------- | ---------------------------------------------------------------- |
-| `sp_add_material`    | Ajoute un nouveau document dans le catalogue.                    |
-| `sp_add_copy`        | Ajoute une copie physique ou numérique d’un document.            |
-| `sp_update_material` | Met à jour le titre, la langue ou la description d’un document.  |
-| `sp_delete_material` | Supprime un document (et ses copies) s’il n’a pas de prêt actif. |
+| Procédure            | Description                                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sp_add_material`    | Ajoute un nouveau document (livre, DVD, etc.) dans le catalogue avec ses informations et le nombre total de copies disponibles.             |
+| `sp_add_copy`        | Ajoute une nouvelle copie d’un document existant. Vérifie que le document existe et met à jour le total et le nombre de copies disponibles. |
+| `sp_update_material` | Met à jour les informations d’un document (titre, langue, description). Les valeurs non renseignées ne sont pas modifiées.                  |
+| `sp_delete_material` | Supprime un document et ses copies associées uniquement s’il n’a aucun prêt actif. Supprime aussi les liens avec les auteurs et les genres. |
+
 
 # Reservation Procedures
-| Procédure                | Description                                             |
-| ------------------------ | ------------------------------------------------------- |
-| `sp_place_reservation`   | Crée une réservation si aucune copie n’est disponible.  |
-| `sp_cancel_reservation`  | Annule une réservation et réorganise la file d’attente. |
-| `sp_fulfill_reservation` | Marque une réservation comme prête à être retirée.      |
+| Procédure                | Description                                                                                                                      |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| `sp_place_reservation`   | Crée une réservation pour un document uniquement si aucune copie n’est disponible. Attribue une position dans la file d’attente. |
+| `sp_cancel_reservation`  | Annule une réservation active et ajuste la position des autres membres dans la file d’attente.                                   |
+| `sp_fulfill_reservation` | Marque une réservation comme prête à être retirée (`Ready`). Lie la réservation à une copie et fixe une date limite de retrait.  |
+
 
 # Fine Management Procedures
-| Procédure        | Description                                          |
-| ---------------- | ---------------------------------------------------- |
-| `sp_pay_fine`    | Enregistre un paiement total ou partiel d’amende.    |
-| `sp_waive_fine`  | Annule une amende manuellement par le personnel.     |
-| `sp_assess_fine` | Crée une amende manuelle (perte, dégradation, etc.). |
+| Procédure        | Description                                                                                                                                      |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `sp_pay_fine`    | Enregistre un paiement d’amende total ou partiel. Met à jour le statut de l’amende (`Paid` ou `Partially Paid`) et réduit le total dû du membre. |
+| `sp_waive_fine`  | Annule (remet) une amende après validation par le personnel. Exige une raison d’au moins 10 caractères.                                          |
+| `sp_assess_fine` | Crée une nouvelle amende manuelle (retard, perte, dégradation, etc.) et l’ajoute au solde du membre.                                             |
+
 
 # Batch Procedures (Automatisation)
 | Procédure                              | Description                                                                                                                                                                                       |
