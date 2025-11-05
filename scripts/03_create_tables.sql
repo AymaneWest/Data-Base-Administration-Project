@@ -237,7 +237,7 @@ COMMENT ON COLUMN BRANCHES.created_date IS 'Date when the branch record was crea
 
 CREATE TABLE PATRONS (
     patron_id NUMBER PRIMARY KEY,                     -- Unique identifier for each patron (primary key)
-    
+    user_id NUMBER,                                   -- Links patron to their system login account
     card_number VARCHAR2(20) NOT NULL UNIQUE,         -- Library card number or barcode used for identification
     
     first_name VARCHAR2(50) NOT NULL,                 -- Patron's first name (required for identification)
@@ -274,7 +274,12 @@ CREATE TABLE PATRONS (
     CONSTRAINT chk_account_status CHECK (account_status IN 
         ('Active', 'Expired', 'Suspended', 'Blocked')),
         -- Ensures account_status is valid and prevents invalid text values
-    
+        
+    CONSTRAINT fk_patron_user FOREIGN KEY (user_id) 
+        REFERENCES USERS(user_id) ON DELETE SET NULL, -- If user deleted, patron record remains
+        
+    CONSTRAINT uq_patron_user UNIQUE (user_id),        -- One user account per patron (1:1)
+
     CONSTRAINT chk_fines_positive CHECK (total_fines_owed >= 0),
         -- Prevents negative fine values (a patron can owe money, but not have negative balance)
     
@@ -303,6 +308,8 @@ COMMENT ON COLUMN PATRONS.registered_branch_id IS 'Foreign key linking to BRANCH
 COMMENT ON COLUMN PATRONS.account_status IS 'Current state of the account: Active, Expired, Suspended, or Blocked.';
 COMMENT ON COLUMN PATRONS.total_fines_owed IS 'Total amount of unpaid fines or fees owed by the patron.';
 COMMENT ON COLUMN PATRONS.max_borrow_limit IS 'Maximum number of books or materials a patron can borrow simultaneously.';
+COMMENT ON COLUMN PATRONS.user_id IS 
+'Foreign key linking patron to USERS table - enables patrons to log in and access online services like catalog browsing, reservation management, and fine payment. NULL if patron has no online account (walk-in only).';
 
 -- ============================================================================
 -- 9. STAFF TABLE - Library Employees
@@ -312,6 +319,7 @@ COMMENT ON COLUMN PATRONS.max_borrow_limit IS 'Maximum number of books or materi
 
 CREATE TABLE STAFF (
     staff_id NUMBER PRIMARY KEY, -- Unique identifier for each staff member
+    user_id NUMBER,               -- Links staff to their system login account
     employee_number VARCHAR2(20) NOT NULL UNIQUE, -- Internal employee number, must be unique
     first_name VARCHAR2(50) NOT NULL, -- Staff member's first name
     last_name VARCHAR2(50) NOT NULL, -- Staff member's last name
@@ -330,7 +338,11 @@ CREATE TABLE STAFF (
     CONSTRAINT chk_staff_role CHECK (staff_role IN 
         ('Librarian', 'Assistant', 'Manager', 'Cataloger', 'IT Admin', 'Reception', 'Admin')),
     CONSTRAINT chk_is_active CHECK (is_active IN ('Y', 'N')),
-    CONSTRAINT chk_salary_positive CHECK (salary > 0)
+    CONSTRAINT chk_salary_positive CHECK (salary > 0),
+    CONSTRAINT fk_staff_user FOREIGN KEY (user_id) 
+        REFERENCES USERS(user_id) ON DELETE SET NULL, -- If user deleted, staff record remains
+    CONSTRAINT uq_staff_user UNIQUE (user_id)         -- One user account per staff member (1:1)
+
 );
 
 -- Comments to document table and columns
@@ -341,6 +353,8 @@ COMMENT ON COLUMN STAFF.staff_role IS 'Role: Librarian, Assistant, Manager, Cata
 COMMENT ON COLUMN STAFF.is_active IS 'Indicates if staff member is currently active (Y/N)';
 COMMENT ON COLUMN STAFF.salary IS 'Monthly or annual salary, must be positive';
 COMMENT ON COLUMN STAFF.branch_id IS 'Branch where the staff member works';
+COMMENT ON COLUMN STAFF.user_id IS 
+'Foreign key linking staff to USERS table - enables staff to authenticate and access system functions based on their assigned roles (e.g., Librarian can check out books, Manager can generate reports). NULL if staff position does not require system access.';
 
 
 -- ============================================================================
@@ -380,9 +394,7 @@ COMMENT ON TABLE AUTHORS IS 'Authors and creators of library materials';
 CREATE TABLE GENRES (
     genre_id NUMBER PRIMARY KEY,
     genre_name VARCHAR2(50) NOT NULL UNIQUE,
-    genre_description VARCHAR2(500),
-    parent_genre_id NUMBER,
-    CONSTRAINT fk_parent_genre FOREIGN KEY (parent_genre_id) REFERENCES GENRES(genre_id)
+    genre_description VARCHAR2(500)
 );
 
 COMMENT ON TABLE GENRES IS 'Subject classifications and genres for materials';
