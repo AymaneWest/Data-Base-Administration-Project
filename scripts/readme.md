@@ -1,6 +1,6 @@
 # Authentication & Authorization Layer - Implementation Guide
 
-## 🎯 What I ADDED
+## 🎯 What I Added
 
 ### **4 Core Tables**
 1. **AUDIT_LOG** - Records every security event (who accessed what, when, success/failure)
@@ -204,6 +204,7 @@ message: "Login successful"
 4. **Sequences**: Already created (SQ_AUDIT_LOG, SQ_LOGIN_ATTEMPTS, SQ_PASSWORD_HISTORY)
 
 ---
+
 
 
 
