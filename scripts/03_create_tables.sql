@@ -28,7 +28,9 @@ DROP TABLE USER_ROLES CASCADE CONSTRAINTS;
 -- ============================================================================
 -- SECTION 1: AUTHENTICATION & AUTHORIZATION TABLES
 -- ============================================================================
-
+CREATE SEQUENCE SQ_AUDIT_LOG START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE SQ_LOGIN_ATTEMPTS START WITH 1 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE SQ_PASSWORD_HISTORY START WITH 1 INCREMENT BY 1 NOCACHE;
 -- ============================================================================
 -- 1. USERS TABLE - System Authentication
 -- ============================================================================
@@ -161,10 +163,93 @@ COMMENT ON COLUMN ROLE_PERMISSIONS.granted_date IS 'Date when permission was gra
 COMMENT ON COLUMN ROLE_PERMISSIONS.granted_by_user_id IS 'User who assigned this permission';
 
 -- ============================================================================
+-- TABLE 6: AUDIT_LOG - Track all security-related events
+-- ============================================================================
+
+CREATE TABLE AUDIT_LOG (
+    audit_id NUMBER PRIMARY KEY,
+    user_id NUMBER,
+    action_type VARCHAR2(50) NOT NULL,
+    resource_accessed VARCHAR2(100),
+    action_details VARCHAR2(500),
+    action_old_value VARCHAR2(500),
+    action_new_value VARCHAR2(500),
+    status VARCHAR2(20) NOT NULL,
+    failure_reason VARCHAR2(200),
+    audit_timestamp DATE DEFAULT SYSDATE NOT NULL,
+    
+    CONSTRAINT fk_audit_user FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE SET NULL,
+    CONSTRAINT chk_action_type CHECK (action_type IN 
+        ('LOGIN', 'LOGOUT', 'PERMISSION_DENIED', 'DATA_ACCESS', 'DATA_CREATE', 'DATA_UPDATE', 'DATA_DELETE', 'PASSWORD_CHANGE', 'PERMISSION_CHECK')),
+    CONSTRAINT chk_audit_status CHECK (status IN ('SUCCESS', 'FAILURE'))
+);
+
+COMMENT ON TABLE AUDIT_LOG IS 'Records all security events for compliance and troubleshooting';
+COMMENT ON COLUMN AUDIT_LOG.audit_id IS 'Unique audit event identifier';
+COMMENT ON COLUMN AUDIT_LOG.user_id IS 'User who triggered the event';
+COMMENT ON COLUMN AUDIT_LOG.action_type IS 'Type of action (LOGIN, LOGOUT, etc.)';
+COMMENT ON COLUMN AUDIT_LOG.status IS 'SUCCESS or FAILURE status of action';
+
+
+-- ============================================================================
+-- TABLE 7: SESSION_MANAGEMENT - Track active user sessions
+-- ============================================================================
+CREATE TABLE SESSION_MANAGEMENT (
+    session_id VARCHAR2(100) PRIMARY KEY,
+    user_id NUMBER NOT NULL,
+    login_time DATE DEFAULT SYSDATE NOT NULL,
+    last_activity_time DATE DEFAULT SYSDATE NOT NULL,
+    logout_time DATE,
+    session_status VARCHAR2(20) DEFAULT 'ACTIVE',
+    session_timeout_minutes NUMBER DEFAULT 30,
+    
+    CONSTRAINT fk_session_user FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE,
+    CONSTRAINT chk_session_status CHECK (session_status IN ('ACTIVE', 'EXPIRED', 'LOGGED_OUT'))
+);
+
+
+COMMENT ON TABLE SESSION_MANAGEMENT IS 'Manages active user sessions and tracks who is currently logged in';
+COMMENT ON COLUMN SESSION_MANAGEMENT.session_id IS 'Unique session identifier token';
+COMMENT ON COLUMN SESSION_MANAGEMENT.session_status IS 'Current session state (ACTIVE, EXPIRED, LOGGED_OUT)';
+
+-- ============================================================================
+-- TABLE 8: PASSWORD_HISTORY - Prevent password reuse
+-- ============================================================================
+CREATE TABLE PASSWORD_HISTORY (
+    history_id NUMBER PRIMARY KEY,
+    user_id NUMBER NOT NULL,
+    old_password_hash VARCHAR2(255) NOT NULL,
+    changed_date DATE DEFAULT SYSDATE NOT NULL,
+    
+    CONSTRAINT fk_pwd_history_user FOREIGN KEY (user_id) REFERENCES USERS(user_id) ON DELETE CASCADE
+);
+
+
+COMMENT ON TABLE PASSWORD_HISTORY IS 'Stores old password hashes to prevent password reuse';
+COMMENT ON COLUMN PASSWORD_HISTORY.history_id IS 'Unique password history record identifier';
+
+-- ============================================================================
+-- TABLE 9: LOGIN_ATTEMPTS - Prevent brute-force attacks
+-- ============================================================================
+CREATE TABLE LOGIN_ATTEMPTS (
+    attempt_id NUMBER PRIMARY KEY,
+    username VARCHAR2(50) NOT NULL,
+    attempt_timestamp DATE DEFAULT SYSDATE NOT NULL,
+    login_result VARCHAR2(20) NOT NULL,
+    failure_reason VARCHAR2(200),
+    
+    CONSTRAINT chk_attempt_result CHECK (login_result IN ('SUCCESS', 'FAILURE'))
+);
+COMMENT ON TABLE LOGIN_ATTEMPTS IS 'Tracks login attempts to detect and prevent brute-force attacks';
+COMMENT ON COLUMN LOGIN_ATTEMPTS.attempt_id IS 'Unique login attempt identifier';
+COMMENT ON COLUMN LOGIN_ATTEMPTS.login_result IS 'SUCCESS or FAILURE of login attempt';
+
+
+-- ============================================================================
 -- SECTION 2: LIBRARY OPERATIONAL TABLES
 -- ============================================================================
 /* ======================================================
-   20. CREATE TABLE : LIBRARIES
+   1. CREATE TABLE : LIBRARIES
    ====================================================== */
 CREATE TABLE LIBRARIES (
     library_id NUMBER PRIMARY KEY,                            -- Unique ID for each library organization
@@ -189,7 +274,7 @@ COMMENT ON COLUMN LIBRARIES.website IS 'Website URL of the library system.';
 COMMENT ON COLUMN LIBRARIES.library_description IS 'Short description or mission statement of the library.';
 COMMENT ON COLUMN LIBRARIES.created_date IS 'Record creation timestamp, defaults to current system date.';
 -- ============================================================================
--- 6. BRANCHES TABLE - Library Locations
+-- 2. BRANCHES TABLE - Library Locations
 -- ============================================================================
 CREATE TABLE BRANCHES (
     branch_id NUMBER PRIMARY KEY,                             -- Unique ID for each physical branch
@@ -226,7 +311,7 @@ COMMENT ON COLUMN BRANCHES.branch_capacity IS 'Maximum number of visitors/books 
 COMMENT ON COLUMN BRANCHES.created_date IS 'Date when the branch record was created.';
 
 -- ============================================================================
--- 8. PATRONS TABLE - Library Members
+-- 3. PATRONS TABLE - Library Members
 -- ============================================================================
 /*******************************************************************************************
     DESCRIPTION   : Defines the PATRONS table for the Library Management System.
@@ -312,7 +397,7 @@ COMMENT ON COLUMN PATRONS.user_id IS
 'Foreign key linking patron to USERS table - enables patrons to log in and access online services like catalog browsing, reservation management, and fine payment. NULL if patron has no online account (walk-in only).';
 
 -- ============================================================================
--- 9. STAFF TABLE - Library Employees
+-- 4. STAFF TABLE - Library Employees
 -- ============================================================================
 -- Table: STAFF
 -- Description: Stores information about all library employees who manage daily operations.
@@ -358,7 +443,7 @@ COMMENT ON COLUMN STAFF.user_id IS
 
 
 -- ============================================================================
--- 10. PUBLISHERS TABLE - Publishing Companies
+-- 5. PUBLISHERS TABLE - Publishing Companies
 -- ============================================================================
 CREATE TABLE PUBLISHERS (
     publisher_id NUMBER PRIMARY KEY,
@@ -372,7 +457,7 @@ CREATE TABLE PUBLISHERS (
 COMMENT ON TABLE PUBLISHERS IS 'Publishing companies that publish materials';
 
 -- ============================================================================
--- 11. AUTHORS TABLE - Material Creators
+-- 6. AUTHORS TABLE - Material Creators
 -- ============================================================================
 CREATE TABLE AUTHORS (
     author_id NUMBER PRIMARY KEY,
@@ -389,7 +474,7 @@ CREATE TABLE AUTHORS (
 COMMENT ON TABLE AUTHORS IS 'Authors and creators of library materials';
 
 -- ============================================================================
--- 12. GENRES TABLE - Subject Classifications
+-- 7. GENRES TABLE - Subject Classifications
 -- ============================================================================
 CREATE TABLE GENRES (
     genre_id NUMBER PRIMARY KEY,
@@ -400,7 +485,7 @@ CREATE TABLE GENRES (
 COMMENT ON TABLE GENRES IS 'Subject classifications and genres for materials';
 
 -- ============================================================================
--- 13. MATERIALS TABLE - Library Catalog Items
+-- 8. MATERIALS TABLE - Library Catalog Items
 -- ============================================================================
 -- Table: MATERIALS
 -- Description: Contains details about all items available in the library catalog, such as books, DVDs, journals, etc.
@@ -446,7 +531,7 @@ COMMENT ON COLUMN MATERIALS.available_copies IS 'Number of copies currently avai
 
 
 -- ============================================================================
--- 14. COPIES TABLE - Physical/Digital Instances
+-- 9. COPIES TABLE - Physical/Digital Instances
 -- ============================================================================
 -- Table: COPIES
 -- Description: Represents physical or digital copies of each material, distributed across library branches.
@@ -478,7 +563,7 @@ COMMENT ON COLUMN COPIES.copy_status IS 'Current availability status of the copy
 
 
 -- ============================================================================
--- 15. LOANS TABLE - Borrowing Transactions
+-- 10. LOANS TABLE - Borrowing Transactions
 -- ============================================================================
 -- Table: LOANS
 -- Description: Tracks all transactions when a patron borrows or returns a library copy.
@@ -514,7 +599,7 @@ COMMENT ON COLUMN LOANS.renewal_count IS 'Number of renewals (max 5)';
 
 
 -- ============================================================================
--- 16. RESERVATIONS TABLE - Hold Requests
+-- 11. RESERVATIONS TABLE - Hold Requests
 -- ============================================================================
 -- Table: RESERVATIONS
 -- Description: Manages reservations or hold requests made by patrons for unavailable materials.
@@ -548,7 +633,7 @@ COMMENT ON COLUMN RESERVATIONS.reservation_status IS 'Reservation progress (Pend
 
 
 -- ============================================================================
--- 17. FINES TABLE - Simplified Penalties
+-- 12. FINES TABLE - Simplified Penalties
 -- ============================================================================
 -- Table: FINES
 -- Description: Tracks monetary penalties for overdue, lost, or damaged materials.
@@ -594,7 +679,7 @@ COMMENT ON COLUMN FINES.payment_method IS 'Mode of payment used by patron';
 
 
 -- ============================================================================
--- 18. MATERIAL_AUTHORS TABLE - Junction Table (M:N)
+-- 13. MATERIAL_AUTHORS TABLE - Junction Table (M:N)
 -- ============================================================================
 CREATE TABLE MATERIAL_AUTHORS (
     material_id NUMBER NOT NULL,
@@ -611,7 +696,7 @@ CREATE TABLE MATERIAL_AUTHORS (
 COMMENT ON TABLE MATERIAL_AUTHORS IS 'Junction table linking materials to their authors (M:N relationship)';
 
 -- ============================================================================
--- 19. MATERIAL_GENRES TABLE - Junction Table (M:N)
+-- 14. MATERIAL_GENRES TABLE - Junction Table (M:N)
 -- ============================================================================
 CREATE TABLE MATERIAL_GENRES (
     material_id NUMBER NOT NULL,
