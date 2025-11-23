@@ -196,7 +196,7 @@ message: "Login successful"
 
 ---
 
-## ⚠️ Important Notes
+## ⚠️ Important Stuffs to improve later
 
 1. **Hash Function**: The current `fn_hash_password` uses MD5 (for demo). For production, use bcrypt or Argon2 via external library
 2. **Clean Up Old Sessions**: Run `sp_clean_expired_sessions` as a scheduled job (every hour)
@@ -204,6 +204,7 @@ message: "Login successful"
 4. **Sequences**: Already created (SQ_AUDIT_LOG, SQ_LOGIN_ATTEMPTS, SQ_PASSWORD_HISTORY)
 
 ---
-That's it! You now have a complete, production-ready authentication and authorization system!
+
+
 
 
