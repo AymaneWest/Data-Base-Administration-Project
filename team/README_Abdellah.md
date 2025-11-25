@@ -83,6 +83,16 @@ Ce package centralise toutes les constantes de configuration utilisées dans les
 | `sp_assess_fine` | Crée une nouvelle amende manuelle (retard, perte, dégradation, etc.) et l’ajoute au solde du membre.                                             |
 
 
+# REPORTING FUNCTIONS
+| Fonction                                        | Rôle                        | Description                                                                                       |
+| ----------------------------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------- |
+| `fn_get_patron_statistics(p_patron_id)`         | Statistiques du patron      | Retourne un résumé du nombre de prêts actifs, prêts en retard, amendes et réservations du patron. |
+| `fn_get_overdue_count(p_branch_id)`             | Compte des prêts en retard  | Retourne le nombre total de prêts en retard, global ou par branche si indiqué.                    |
+| `fn_calculate_total_fines(p_patron_id)`         | Total des amendes           | Calcule le total des amendes impayées ou partiellement payées, global ou par patron.              |
+| `fn_check_material_availability(p_material_id)` | Disponibilité d’un document | Indique si le matériel est disponible et combien de copies le sont.                               |
+
+
+
 # Batch Procedures (Automatisation)
 | Procédure                              | Description                                                                                                                                                                                       |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
