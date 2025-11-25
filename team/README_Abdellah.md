@@ -30,14 +30,14 @@ Ce package centralise toutes les constantes de configuration utilisées dans les
 | `c_BORROW_LIMIT_STANDARD`      | NUMBER = 10    | Nombre max de prêts pour Standard.                        |
 
 # Utility Functions
-| Fonction                                                    | Rôle                     | Description                                               |
-| ----------------------------------------------------------- | ------------------------ | --------------------------------------------------------- |
-| `fn_patron_exists(p_patron_id)`                             | Vérifie existence        | Retourne `TRUE` si le patron existe.                      |
-| `fn_calculate_loan_period(p_membership_type)`               | Calcule durée de prêt    | Retourne la durée du prêt selon le type d’abonnement.     |
-| `fn_calculate_borrow_limit(p_membership_type)`              | Calcule limite d’emprunt | Donne le nombre maximum de prêts autorisés.               |
-| `fn_get_active_loan_count(p_patron_id)`                     | Compte les prêts actifs  | Nombre total de prêts non retournés.                      |
-| `fn_calculate_overdue_fine(p_due_date, p_return_date)`      | Calcule amende           | Multiplie les jours de retard par `c_DAILY_OVERDUE_FINE`. |
-| `fn_check_patron_eligibility(p_patron_id, p_error_message)` | Vérifie éligibilité      | Vérifie statut actif, dettes, et limites d’emprunt.       |
+| **Fonction**                                                | **Rôle**                | **Description**                                                            |
+| ----------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| `fn_patron_exists(p_patron_id)`                             | Vérifier existence      | Retourne `TRUE` si le patron existe dans la table `PATRONS`.               |
+| `fn_calculate_loan_period(p_membership_type)`               | Calcul durée de prêt    | Retourne la durée de prêt selon le type d’abonnement du patron.            |
+| `fn_calculate_borrow_limit(p_membership_type)`              | Calcul limite d’emprunt | Retourne le nombre maximum de livres que le patron peut emprunter.         |
+| `fn_get_active_loan_count(p_patron_id)`                     | Nombre de prêts actifs  | Retourne le nombre total de prêts **toujours actifs** pour ce patron.      |
+| `fn_calculate_overdue_fine(p_due_date, p_return_date)`      | Calcul amende de retard | Calcule l’amende : *jours de retard × `c_DAILY_OVERDUE_FINE`*.             |
+| `fn_check_patron_eligibility(p_patron_id, p_error_message)` | Vérifier éligibilité    | Vérifie que le patron est actif, sans dettes, et sous la limite d’emprunt. |
 
 # Patron Management Procedures
 | Procédure              | Description                                                                                                                                                                                                                     |
