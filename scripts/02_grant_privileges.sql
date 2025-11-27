@@ -162,6 +162,60 @@ GRANT ROLE_DIRECTOR TO user_director;
 GRANT ROLE_CATALOGER TO user_cataloger;
 GRANT ROLE_CIRCULATION_CLERK TO user_clerk;
 GRANT ROLE_IT_SUPPORT TO user_itsupport;
+commit;
 
+--=============================================================================
+--AUTRE FINCTION:CREER PAR AYMAN
+--=============================================================================
+
+
+-- ROLE_SYS_ADMIN : Accès complet aux fonctions et procédures
+GRANT EXECUTE ON fn_hash_password TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_verify_password TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_has_permission TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_has_role TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_get_user_roles TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_is_session_valid TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_get_session_user_id TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_get_session_remaining_time TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_is_user_active TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON fn_is_account_locked TO ROLE_SYS_ADMIN;
+
+GRANT EXECUTE ON sp_authenticate_user TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_logout_user TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_change_password TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_validate_session TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_check_user_permission TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_assign_role_to_user TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_revoke_role_from_user TO ROLE_SYS_ADMIN;
+GRANT EXECUTE ON sp_clean_expired_sessions TO ROLE_SYS_ADMIN;
+
+-- ROLE_DIRECTOR : Accès aux fonctions/fonctions liées aux rapports et sessions
+
+GRANT EXECUTE ON fn_has_permission TO ROLE_DIRECTOR;
+GRANT EXECUTE ON fn_has_role TO ROLE_DIRECTOR;
+GRANT EXECUTE ON fn_get_user_roles TO ROLE_DIRECTOR;
+
+-- ROLE_CATALOGER : Accès limité aux fonctions liées à gestion utilisateurs/sessions
+GRANT EXECUTE ON fn_has_permission TO ROLE_CATALOGER;
+GRANT EXECUTE ON fn_has_role TO ROLE_CATALOGER;
+
+-- ROLE_CIRCULATION_CLERK : Accès aux fonctions utilisées pour validation des prêts et usagers
+GRANT EXECUTE ON fn_has_permission TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON fn_has_role TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON fn_is_user_active TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON fn_is_account_locked TO ROLE_CIRCULATION_CLERK;
+
+GRANT EXECUTE ON sp_authenticate_user TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON sp_logout_user TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON sp_change_password TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON sp_validate_session TO ROLE_CIRCULATION_CLERK;
+GRANT EXECUTE ON sp_check_user_permission TO ROLE_CIRCULATION_CLERK;
+
+-- ROLE_IT_SUPPORT : Accès aux procédures de session et permission pour maintenance
+GRANT EXECUTE ON fn_has_permission TO ROLE_IT_SUPPORT;
+GRANT EXECUTE ON fn_has_role TO ROLE_IT_SUPPORT;
+GRANT EXECUTE ON fn_is_session_valid TO ROLE_IT_SUPPORT;
+GRANT EXECUTE ON sp_clean_expired_sessions TO ROLE_IT_SUPPORT;
 COMMIT;
 
