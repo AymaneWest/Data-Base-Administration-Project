@@ -3,6 +3,8 @@ import oracledb
 import os
 from dotenv import load_dotenv
 load_dotenv()
+
+
 connection_string=(
     f"oracle+oracledb://{os.getenv('ORACLE_USER')}:"
     f"{os.getenv('ORACLE_PASSWORD')}@"
