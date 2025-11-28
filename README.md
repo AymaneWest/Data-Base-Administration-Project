@@ -1,5 +1,5 @@
-📚 Sécurité RBAC Oracle pour Système de Gestion de Bibliothèque (LMS)
-📝 Introduction
+# 📚 Sécurité RBAC Oracle pour Système de Gestion de Bibliothèque (LMS)
+## 📝 Introduction
 
 Ce projet met en place un modèle RBAC (Role-Based Access Control) pour sécuriser une base de données Oracle utilisée dans un Library Management System (LMS).
 
@@ -14,8 +14,8 @@ la séparation des responsabilités
 
 Chaque utilisateur reçoit uniquement les autorisations nécessaires à ses tâches quotidiennes.
 
-🔐 Rôles définis dans le système
-1. ROLE_SYS_ADMIN
+# 🔐 Rôles définis dans le système
+## 1. ROLE_SYS_ADMIN
 
 Contrôle administratif complet
 
@@ -59,8 +59,8 @@ Accès en lecture seule sur la configuration
 
 Exécution limitée de procédures de maintenance batch
 
-🛠️ Privilèges GRANT utilisés
-✔️ Droits EXECUTE sur les procédures PL/SQL
+# 🛠️ Privilèges GRANT utilisés
+## ✔️ Droits EXECUTE sur les procédures PL/SQL
 
 Chaque rôle reçoit uniquement les droits nécessaires :
 
@@ -76,7 +76,7 @@ ROLE_IT_SUPPORT : exécution des tâches techniques batch uniquement.
 
 Cette granularité garantit une séparation stricte des fonctions.
 
-🗄️ Privilèges SQL sur les tables
+## 🗄️ Privilèges SQL sur les tables
 ROLE_SYS_ADMIN
 
 Tous les privilèges (SELECT, INSERT, UPDATE, DELETE)
@@ -107,7 +107,7 @@ Lecture seule sur les tables de configuration (LIBRARIES, BRANCHES)
 
 Aucun accès en modification
 
-🔒 Conclusion
+# 🔒 Conclusion
 
 L’implémentation RBAC permet :
 
