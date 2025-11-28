@@ -1,46 +1,122 @@
-README - Sécurité RBAC Oracle pour Système de Gestion de Bibliothèque (LMS)
-Introduction au projet et au RBAC
-Ce projet vise à sécuriser une base de données Oracle destinée à la gestion d'une bibliothèque (LMS) en implémentant le modèle de Contrôle d’Accès Basé sur les Rôles (RBAC). Le RBAC est une méthode éprouvée pour gérer les droits d’accès : chaque utilisateur se voit attribuer un ou plusieurs rôles qui définissent précisément ses permissions. Contrairement à l’attribution directe de droits aux utilisateurs, RBAC facilite la gestion des privilèges en regroupant les autorisations par fonction métier.
+📚 Sécurité RBAC Oracle pour Système de Gestion de Bibliothèque (LMS)
+📝 Introduction
 
-RBAC respecte le principe de moindre privilège : un utilisateur ne peut accéder qu’aux ressources nécessaires à ses tâches. Cela renforce la sécurité en limitant les risques d’accès non autorisé ou d’erreur.
+Ce projet met en place un modèle RBAC (Role-Based Access Control) pour sécuriser une base de données Oracle utilisée dans un Library Management System (LMS).
 
-Description des rôles
-ROLE_SYS_ADMIN : Administration complète et gestion critique des données sensibles, procédures et fonctions de maintenance.
+Le RBAC est une approche qui attribue les permissions non pas directement aux utilisateurs, mais aux rôles, eux-mêmes liés aux missions métiers.
+Ce modèle améliore :
 
-ROLE_DIRECTOR : Accès en lecture seule pour élaboration de rapports et supervision.
+la sécurité (principe du moindre privilège)
 
-ROLE_CATALOGER : Gestion complète du catalogue (ajout, mise à jour, suppression des documents).
+la gestion des droits
 
-ROLE_CIRCULATION_CLERK : Gestion des prêts, retours, réservations, usagers, et paiement des amendes.
+la séparation des responsabilités
 
-ROLE_IT_SUPPORT : Support technique avec accès en lecture sur la configuration et droits sur procédures batch de maintenance.
+Chaque utilisateur reçoit uniquement les autorisations nécessaires à ses tâches quotidiennes.
 
-Explications des commandes GRANT utilisées
-Privilèges d’exécution (EXECUTE) sur fonctions et procédures PL/SQL
-Les rôles se voient accorder uniquement les droits EXECUTE nécessaires sur les procédures et fonctions correspondant à leurs responsabilités :
+🔐 Rôles définis dans le système
+1. ROLE_SYS_ADMIN
 
-ROLE_SYS_ADMIN a un accès total à toutes les procédures critiques : suppression de documents, notifications, circulation, gestion des adhésions, rapports, amendes, etc.
+Contrôle administratif complet
 
-ROLE_DIRECTOR exécute uniquement les fonctions et procédures liées au reporting pour superviser sans modifier.
+Gestion des données sensibles
 
-ROLE_CATALOGER peut exécuter les procédures de gestion du catalogue uniquement.
+Maintenance, procédures critiques, fonctions système
 
-ROLE_CIRCULATION_CLERK dispose des droits pour gérer les prêts, retours, renouvellements, paiements d'amendes, et gestion des usagers.
+2. ROLE_DIRECTOR
 
-ROLE_IT_SUPPORT est limité aux procédures de maintenance technique batch.
+Accès lecture seule
 
-Cette granularité garantit une séparation claire et sécurisée des fonctions.
+Consultation des rapports et supervision générale
 
-Privilèges SQL sur tables
-Le rôle ROLE_SYS_ADMIN reçoit la totalité des privilèges (SELECT, INSERT, UPDATE, DELETE) sur toutes les tables métier et configuration, pour la gestion intégrale.
+3. ROLE_CATALOGER
 
-ROLE_DIRECTOR bénéficie uniquement des droits SELECT, assurant un accès en lecture seule conforme à la supervision.
+Gestion complète du catalogue :
 
-ROLE_CATALOGER a des droits complets (CRUD) sur les tables du catalogue, mais aucun accès aux prêts ou personnel.
+ajout
 
-ROLE_CIRCULATION_CLERK gère les données relatives aux prêts et usagers avec droits d’écriture adaptés, et peut lire le catalogue.
+modification
 
-ROLE_IT_SUPPORT peut uniquement lire les tables de configuration (LIBRARIES, BRANCHES), sans modification possible.
+suppression de documents
 
-Ce découpage évite les conflits et garantit la sécurité des informations critiques.
+4. ROLE_CIRCULATION_CLERK
 
+Gestion des opérations de circulation :
+
+prêts / retours
+
+réservations
+
+gestion des usagers
+
+paiement d’amendes
+
+5. ROLE_IT_SUPPORT
+
+Support technique
+
+Accès en lecture seule sur la configuration
+
+Exécution limitée de procédures de maintenance batch
+
+🛠️ Privilèges GRANT utilisés
+✔️ Droits EXECUTE sur les procédures PL/SQL
+
+Chaque rôle reçoit uniquement les droits nécessaires :
+
+ROLE_SYS_ADMIN : accès total à toutes les procédures (maintenance, adhésions, circulation, amendes, notifications…).
+
+ROLE_DIRECTOR : uniquement les procédures de reporting et de consultation.
+
+ROLE_CATALOGER : exécution des procédures de gestion du catalogue.
+
+ROLE_CIRCULATION_CLERK : exécution des procédures liées aux prêts, renouvellements, retours, amendes et gestion des usagers.
+
+ROLE_IT_SUPPORT : exécution des tâches techniques batch uniquement.
+
+Cette granularité garantit une séparation stricte des fonctions.
+
+🗄️ Privilèges SQL sur les tables
+ROLE_SYS_ADMIN
+
+Tous les privilèges (SELECT, INSERT, UPDATE, DELETE)
+
+Sur toutes les tables métier et configuration
+
+ROLE_DIRECTOR
+
+SELECT uniquement
+
+Lecture complète, aucune modification
+
+ROLE_CATALOGER
+
+CRUD complet sur les tables du catalogue
+
+Aucun accès aux tables de prêts ou de personnel
+
+ROLE_CIRCULATION_CLERK
+
+Gestion des usagers et des prêts (INSERT/UPDATE/DELETE là où nécessaire)
+
+Lecture du catalogue
+
+ROLE_IT_SUPPORT
+
+Lecture seule sur les tables de configuration (LIBRARIES, BRANCHES)
+
+Aucun accès en modification
+
+🔒 Conclusion
+
+L’implémentation RBAC permet :
+
+une sécurité renforcée
+
+une gestion optimisée des permissions
+
+une séparation stricte des responsabilités
+
+une réduction des risques d’erreurs ou d’accès non autorisés
+
+Ce système constitue une base solide pour un LMS sécurisé et conforme aux meilleures pratiques Oracle.
