@@ -16,7 +16,7 @@ BEFORE UPDATE ON USERS
 FOR EACH ROW
 WHEN (NEW.last_login != OLD.last_login)
 BEGIN
-    DBMS_OUTPUT.PUT_LINE('User ' || :NEW.username || ' logged in at ' || TO_CHAR(NEW.last_login, 'DD-MON-YYYY HH:MM:SS'));
+    DBMS_OUTPUT.PUT_LINE('User ' || :NEW.username ||' logged in at ' || TO_CHAR(:NEW.last_login, 'DD-MON-YYYY HH24:MI:SS')    );
 END trg_user_login_log;
 /
 
