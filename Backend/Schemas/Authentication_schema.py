@@ -1,15 +1,20 @@
-from pydantic import Field, field_validator
-from typing import Optional
+from pydantic import Field, field_validator, BaseModel
+from typing import Optional, List
 
 from .Base_Schema import  StatusResponse, BaseRequest
 
-class LoginRequest(BaseRequest):
-    username: str = Field(..., min_length=1, max_length=50, description="Username")
-    password: str = Field(..., min_length=1, max_length=100, description="Password")
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
-class LoginResponse(StatusResponse):
-    session_id: Optional[str] = Field(None, description="Session ID if login successful")
-    user_id: Optional[int] = Field(None, description="User ID if login successful")
+class LoginResponse(BaseModel):
+    success: bool
+    message: str
+    session_id: str
+    user_id: int
+    oracle_username: str
+    oracle_password: str
+    roles: str
 
 class LogoutRequest(BaseRequest):
     session_id: str = Field(..., min_length=1, max_length=100, description="Session ID to logout")

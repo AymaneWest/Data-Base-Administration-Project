@@ -9,12 +9,16 @@ from .Base_Schema import BaseRequest, StatusResponse, MembershipType
 class PatronStatisticsRequest(BaseRequest):
     patron_id: int = Field(..., gt=0, description="Patron ID")
 
-class PatronStatisticsResponse(StatusResponse):
-    active_loans: int = Field(..., ge=0, description="Active loans count")
-    overdue_loans: int = Field(..., ge=0, description="Overdue loans count")
-    total_fines: Decimal = Field(..., ge=0, description="Total fines owed")
-    reservations: int = Field(..., ge=0, description="Active reservations count")
-    statistics_text: str = Field(..., description="Formatted statistics text")
+class PatronStatisticsResponse(BaseModel):
+    success: bool
+    message: str
+    patron_id: int
+    statistics_text: str
+    active_loans: int
+    overdue_loans: int
+    total_fines: float
+    reservations: int
+    executed_by_oracle_user: Optional[str] = None
 
 class OverdueCountRequest(BaseRequest):
     branch_id: Optional[int] = Field(None, gt=0, description="Branch ID filter")

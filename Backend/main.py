@@ -1,30 +1,29 @@
 # main.py
 from fastapi import FastAPI
-from contextlib import asynccontextmanager
-from database import create_pool, close_pool
+from fastapi.middleware.cors import CORSMiddleware
+import logging
 from Routes import Auth_route, users_route, Library_Management_route
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup
-    await create_pool()
-    print("Database pool created successfully")
-    yield
-    # Shutdown
-    await close_pool()
-    print("Database pool closed")
+logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
-    title="Library Management System API",
-    description="Comprehensive API for library management system with OracleDB backend",
-    version="1.0.0",
-    lifespan=lifespan
+    title="Library Management System",
+    description="Role-based authentication with Oracle ",
+    version="1.0.0"
 )
 
-# Include routers
-app.include_router(Auth_route.router)
-app.include_router(users_route.router)
-app.include_router(Library_Management_route.router)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register routers
+app.include_router(Auth_route.router)  # Login/logout - not protected
+app.include_router(users_route.router)           # All protected automatically
+app.include_router(Library_Management_route.router)         # All protected automatically
 
 @app.get("/")
 async def root():
@@ -33,19 +32,13 @@ async def root():
         "version": "1.0.0",
         "status": "running"
     }
-
 @app.get("/health")
 async def health_check():
     return {
         "status": "healthy",
-        "database": "connected"  # You might want to add actual database health check
+        "database": "connected"
     }
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000,reload=True)

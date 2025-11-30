@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, validator, condecimal
+from pydantic import BaseModel, Field, validator, condecimal, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 from decimal import Decimal
@@ -17,13 +17,13 @@ class AddPatronRequest(BaseRequest):
     membership_type: MembershipType = Field(..., description="Membership type")
     branch_id: int = Field(..., gt=0, description="Branch ID")
 
-    @validator('email')
+    @field_validator('email')
     def validate_email(cls, v):
         if '@' not in v:
             raise ValueError('Invalid email format')
         return v
 
-    @validator('date_of_birth')
+    @field_validator('date_of_birth')
     def validate_date_of_birth(cls, v):
         if v >= date.today():
             raise ValueError('Date of birth must be in the past')
@@ -40,7 +40,7 @@ class UpdatePatronRequest(BaseRequest):
     phone: Optional[str] = Field(None, min_length=1, max_length=20, description="New phone")
     address: Optional[str] = Field(None, min_length=1, max_length=500, description="New address")
 
-    @validator('email')
+    @field_validator('email')
     def validate_email(cls, v):
         if v is not None and '@' not in v:
             raise ValueError('Invalid email format')
