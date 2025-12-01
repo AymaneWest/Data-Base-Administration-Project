@@ -2,8 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from Routes import Auth_route, users_route, Library_Management_route
-
+from Routes import Auth_route, users_route, Library_Management_route, statistics_route
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
@@ -22,8 +21,10 @@ app.add_middleware(
 
 # Register routers
 app.include_router(Auth_route.router)  # Login/logout - not protected
-app.include_router(users_route.router)           # All protected automatically
+app.include_router(users_route.router)  # All protected automatically
+app.include_router(statistics_route.router)
 app.include_router(Library_Management_route.router)         # All protected automatically
+
 
 @app.get("/")
 async def root():
@@ -37,6 +38,11 @@ async def health_check():
     return {
         "status": "healthy",
         "database": "connected"
+    }
+@app.get("/check")
+async def hello_chat():
+    return {
+        "message": " hello barbie"
     }
 
 if __name__ == "__main__":

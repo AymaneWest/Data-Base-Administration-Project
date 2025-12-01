@@ -1,8 +1,9 @@
 # routes/library.py
 import re
+from typing import List, Optional
 import time
 import logging.config
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from database.connection import get_role_based_connection, handle_oracle_error
 from dependencies.auth import require_authentication
 import oracledb
@@ -14,6 +15,13 @@ from Schemas.Material_schemas import AddMaterialRequest, AddMaterialResponse, Ad
 from Schemas.Reservation_schemas import PlaceReservationRequest, PlaceReservationResponse
 from Schemas.Fines_schemas import PayFineRequest, PayFineResponse
 from Schemas.Circulation_schemas import CheckoutItemRequest, CheckoutItemResponse, CheckinItemRequest, CheckinItemResponse, RenewLoanRequest, RenewLoanResponse
+from Schemas.statistics import (
+    DashboardStats, PatronDetailsResponse, PatronInfo, PatronLoan,
+    PatronFine, PatronReservation, ExpiringLoan, FineReport,
+    PopularMaterial, BranchPerformance, ExpiringReservation,
+    DailyActivity, MembershipStat, AtRiskPatron, MonthlyStat,
+    AlertLevel, RiskCategory
+)
 
 # In your logging setup
 logging_config = {
@@ -370,92 +378,41 @@ async def get_patron_statistics(
     Uses ROLE-BASED connection
 
     Returns parsed statistics from fn_get_patron_statistics function.
+    The function returns a string like:
+    "Active Loans: 3, Overdue: 1, Fines: 25.50 DH, Reservations: 2"
     """
-    # Debug logging - START
-    logger.debug("🔍 [STATS_DEBUG] ===== PATRON STATISTICS ENDPOINT START =====")
-    logger.debug(f"🔍 [STATS_DEBUG] Patron ID: {patron_id}")
-    logger.debug(f"🔍 [STATS_DEBUG] Auth keys present: {list(auth.keys()) if auth else 'No auth'}")
-    logger.debug(f"🔍 [STATS_DEBUG] Oracle username from auth: {auth.get('oracle_username', 'NOT_FOUND')}")
-    logger.debug(
-        f"🔍 [STATS_DEBUG] Oracle password length: {len(auth.get('oracle_password', '')) if auth.get('oracle_password') else 0}")
-
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
 
     try:
-        # Debug connection attempt
-        logger.debug(f"🔍 [STATS_DEBUG] Attempting role-based connection for user: {oracle_user}")
-        logger.debug(
-            f"🔍 [STATS_DEBUG] Connection pool stats before: {get_connection_pool_stats()}")  # If you have this function
-
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            logger.debug("🔍 [STATS_DEBUG] ✅ Database connection established successfully")
-            logger.debug(f"🔍 [STATS_DEBUG] Connection version: {conn.version}")
-            logger.debug(f"🔍 [STATS_DEBUG] Connection username: {conn.username}")
-
             cursor = conn.cursor()
-            logger.debug("🔍 [STATS_DEBUG] ✅ Database cursor created")
 
             try:
-                # Debug function call
-                logger.debug(f"🔍 [STATS_DEBUG] 📞 Calling Oracle function: fn_get_patron_statistics")
-                logger.debug(f"🔍 [STATS_DEBUG] Function parameters: patron_id={patron_id}")
-
-                # Test basic query first to verify user permissions
-                try:
-                    test_query = "SELECT SYSDATE FROM DUAL"
-                    cursor.execute(test_query)
-                    test_result = cursor.fetchone()
-                    logger.debug(f"🔍 [STATS_DEBUG] ✅ Basic query test passed: {test_result[0]}")
-                except Exception as test_error:
-                    logger.error(f"🔍 [STATS_DEBUG] ❌ Basic query test failed: {str(test_error)}")
-                    raise
-
-                # Check if function exists and user has permissions
-                try:
-                    function_check = """
-                    SELECT COUNT(*) 
-                    FROM user_procedures 
-                    WHERE object_name = 'FN_GET_PATRON_STATISTICS' 
-                    OR object_name = 'PROJET_ADMIN.FN_GET_PATRON_STATISTICS'
-                    """
-                    cursor.execute(function_check)
-                    function_exists = cursor.fetchone()[0]
-                    logger.debug(f"🔍 [STATS_DEBUG] Function exists check: {function_exists}")
-                except Exception as check_error:
-                    logger.warning(f"🔍 [STATS_DEBUG] Function existence check failed: {str(check_error)}")
-
                 # Call the Oracle function
-                start_time = time.time()
                 stats_text = cursor.callfunc(
-                    "fn_get_patron_statistics",
+                    "fn_get_patron_statistics",  # Or: "PROJET_ADMIN.fn_get_patron_statistics"
                     str,
                     [patron_id]
                 )
-                call_duration = time.time() - start_time
 
-                logger.debug(f"🔍 [STATS_DEBUG] ✅ Oracle function call completed in {call_duration:.3f}s")
-                logger.debug(f"🔍 [STATS_DEBUG] Raw statistics text: '{stats_text}'")
-                logger.debug(f"🔍 [STATS_DEBUG] Stats text type: {type(stats_text)}")
-                logger.debug(f"🔍 [STATS_DEBUG] Stats text length: {len(stats_text) if stats_text else 0}")
+                logger.info(f"Statistics for patron {patron_id}: {stats_text}")
 
                 # Check for error messages from function
                 if stats_text == "Patron not found":
-                    logger.warning(f"🔍 [STATS_DEBUG] ❌ Patron not found in database: {patron_id}")
                     raise HTTPException(
                         status_code=404,
                         detail=f"Patron with ID {patron_id} not found"
                     )
 
                 if stats_text == "Error retrieving statistics":
-                    logger.error(f"🔍 [STATS_DEBUG] ❌ Database function returned error for patron: {patron_id}")
                     raise HTTPException(
                         status_code=500,
                         detail="Error retrieving statistics from database"
                     )
 
-                # Parse the statistics text with detailed debugging
-                logger.debug(f"🔍 [STATS_DEBUG] 🔧 Starting statistics parsing...")
+                # Parse the statistics text
+                # Expected format: "Active Loans: 3, Overdue: 1, Fines: 25.50 DH, Reservations: 2"
                 active_loans = 0
                 overdue_loans = 0
                 total_fines = 0.0
@@ -463,52 +420,30 @@ async def get_patron_statistics(
 
                 try:
                     # Extract Active Loans
-                    active_pattern = r'Active Loans:\s*(\d+)'
-                    match = re.search(active_pattern, stats_text)
-                    logger.debug(f"🔍 [STATS_DEBUG] Active Loans regex pattern: '{active_pattern}'")
-                    logger.debug(f"🔍 [STATS_DEBUG] Active Loans match: {match.groups() if match else 'No match'}")
+                    match = re.search(r'Active Loans:\s*(\d+)', stats_text)
                     if match:
                         active_loans = int(match.group(1))
-                        logger.debug(f"🔍 [STATS_DEBUG] ✅ Active Loans parsed: {active_loans}")
 
                     # Extract Overdue
-                    overdue_pattern = r'Overdue:\s*(\d+)'
-                    match = re.search(overdue_pattern, stats_text)
-                    logger.debug(f"🔍 [STATS_DEBUG] Overdue regex pattern: '{overdue_pattern}'")
-                    logger.debug(f"🔍 [STATS_DEBUG] Overdue match: {match.groups() if match else 'No match'}")
+                    match = re.search(r'Overdue:\s*(\d+)', stats_text)
                     if match:
                         overdue_loans = int(match.group(1))
-                        logger.debug(f"🔍 [STATS_DEBUG] ✅ Overdue Loans parsed: {overdue_loans}")
 
                     # Extract Fines (handle decimal numbers)
-                    fines_pattern = r'Fines:\s*([\d.]+)'
-                    match = re.search(fines_pattern, stats_text)
-                    logger.debug(f"🔍 [STATS_DEBUG] Fines regex pattern: '{fines_pattern}'")
-                    logger.debug(f"🔍 [STATS_DEBUG] Fines match: {match.groups() if match else 'No match'}")
+                    match = re.search(r'Fines:\s*([\d.]+)', stats_text)
                     if match:
                         total_fines = float(match.group(1))
-                        logger.debug(f"🔍 [STATS_DEBUG] ✅ Fines parsed: {total_fines}")
 
                     # Extract Reservations
-                    reservations_pattern = r'Reservations:\s*(\d+)'
-                    match = re.search(reservations_pattern, stats_text)
-                    logger.debug(f"🔍 [STATS_DEBUG] Reservations regex pattern: '{reservations_pattern}'")
-                    logger.debug(f"🔍 [STATS_DEBUG] Reservations match: {match.groups() if match else 'No match'}")
+                    match = re.search(r'Reservations:\s*(\d+)', stats_text)
                     if match:
                         reservations = int(match.group(1))
-                        logger.debug(f"🔍 [STATS_DEBUG] ✅ Reservations parsed: {reservations}")
-
-                    logger.debug(f"🔍 [STATS_DEBUG] ✅ All parsing completed successfully")
-                    logger.debug(
-                        f"🔍 [STATS_DEBUG] Parsed values - Active: {active_loans}, Overdue: {overdue_loans}, Fines: {total_fines}, Reservations: {reservations}")
 
                 except (ValueError, AttributeError) as parse_error:
-                    logger.error(f"🔍 [STATS_DEBUG] ❌ Parsing error: {parse_error}")
-                    logger.error(f"🔍 [STATS_DEBUG] ❌ Stats text that failed parsing: '{stats_text}'")
+                    logger.error(f"Error parsing statistics: {parse_error}")
                     # Continue with default values if parsing fails
 
-                # Build response
-                response = PatronStatisticsResponse(
+                return PatronStatisticsResponse(
                     success=True,
                     message="Statistics retrieved successfully",
                     patron_id=patron_id,
@@ -520,37 +455,28 @@ async def get_patron_statistics(
                     executed_by_oracle_user=oracle_user
                 )
 
-                logger.debug(f"🔍 [STATS_DEBUG] ✅ Response built successfully")
-                logger.debug(f"🔍 [STATS_DEBUG] ===== PATRON STATISTICS ENDPOINT END - SUCCESS =====")
-
-                return response
-
             except oracledb.DatabaseError as e:
-                logger.error(f"🔍 [STATS_DEBUG] ❌ Oracle DatabaseError in function call")
-                logger.error(f"🔍 [STATS_DEBUG] ❌ Error code: {e.code}")
-                logger.error(f"🔍 [STATS_DEBUG] ❌ Error message: {e.message}")
-                logger.error(f"🔍 [STATS_DEBUG] ❌ Full error: {str(e)}")
+                # This catches Oracle errors like ORA-00942 (table doesn't exist)
                 return handle_oracle_error(e, oracle_user)
 
-    except HTTPException as http_exc:
-        logger.debug(f"🔍 [STATS_DEBUG] ❌ HTTPException raised: {http_exc.status_code} - {http_exc.detail}")
+    except HTTPException:
         raise
-    except oracledb.DatabaseError as db_error:
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Oracle DatabaseError in connection")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Error code: {getattr(db_error, 'code', 'Unknown')}")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Error message: {getattr(db_error, 'message', str(db_error))}")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Full traceback:", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Database connection error: {str(db_error)}"
-        )
     except Exception as e:
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Unexpected error in patron statistics endpoint")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Error type: {type(e).__name__}")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Error message: {str(e)}")
-        logger.error(f"🔍 [STATS_DEBUG] ❌ Full traceback:", exc_info=True)
-        logger.debug(f"🔍 [STATS_DEBUG] ===== PATRON STATISTICS ENDPOINT END - ERROR =====")
+        logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(
             status_code=500,
             detail=f"Unexpected error: {str(e)}"
         )
+
+@router.get("/user-info")
+async def get_user_info(auth: dict = Depends(require_authentication)):
+    """
+    Get authenticated user information
+    """
+    return {
+        "user_id": auth["user_id"],
+        "username": auth["username"],
+        "oracle_username": auth["oracle_username"],
+        "roles": auth["roles"],
+        "session_status": auth["session_status"]
+    }
