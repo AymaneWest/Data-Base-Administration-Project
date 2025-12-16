@@ -178,3 +178,10 @@ export const getMonthlyActivity = () =>
 
 export const getPopularBooks = () =>
   api.get('/dashboard/popular-books');
+
+// Material Browse & Detail APIs
+export const browseMaterials = (search?: string) =>
+  api.get('/materials/browse', { params: { search } });
+
+export const getMaterialDetail = (materialId: number) =>
+  api.get(`/materials/${materialId}`);

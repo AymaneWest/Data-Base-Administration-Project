@@ -47,28 +47,43 @@ const AdminDashboard: React.FC = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* View Selector */}
+        {/* View Selector / Navigation */}
         <div className="bg-white rounded-lg shadow mb-6 p-4">
           <div className="flex space-x-4">
             <button onClick={() => setActiveView('admin')}
               className={`px-6 py-3 rounded-lg font-medium ${activeView === 'admin' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
               Admin Functions
             </button>
-            <button onClick={() => setActiveView('staff')}
-              className={`px-6 py-3 rounded-lg font-medium ${activeView === 'staff' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              Staff Functions
+            <button onClick={() => navigate('/dashboard')}
+              className={`px-6 py-3 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700`}>
+              Go to Staff Dashboard
             </button>
-            <button onClick={() => setActiveView('patron')}
-              className={`px-6 py-3 rounded-lg font-medium ${activeView === 'patron' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              Patron View (Coming Soon)
+            <button onClick={() => navigate('/patron')}
+              className={`px-6 py-3 rounded-lg font-medium bg-teal-600 text-white hover:bg-teal-700`}>
+              Go to Patron Dashboard
             </button>
           </div>
         </div>
 
         {/* Content Area */}
         {activeView === 'admin' && <AdminFunctionsView userId={userId} onApiCall={handleApiCall} />}
-        {activeView === 'staff' && <StaffFunctionsView userId={userId} onApiCall={handleApiCall} />}
-        {activeView === 'patron' && <PatronViewPlaceholder />}
+        {/* Navigation to other dashboards handled by useEffect or direct links, but here we can render them or redirect */}
+        {/* If Admin wants to see Staff/Patron view, navigating to the actual route is better if they share the same layout.
+            However, the user wants "links on the admin page". The current toggle is fine if we render components.
+            Since StaffDashboard IS a page, we can import it? Or better, just redirect.
+            User said: "put links on the admin page to all the other pages"
+        */}
+        {activeView === 'staff' && (
+          <div className="text-center py-10">
+            <p className="mb-4">Redirecting to Staff Dashboard...</p>
+            {/* We could also just mount <StaffDashboard /> here if it doesn't rely on route params that are missing */}
+          </div>
+        )}
+        {activeView === 'patron' && (
+          <div className="text-center py-10">
+            <p className="mb-4">Redirecting to Patron Dashboard...</p>
+          </div>
+        )}
 
         {/* Results Display */}
         {result && (
