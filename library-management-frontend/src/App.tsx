@@ -3,6 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Login from './pages/login';
 import StaffDashboard from './pages/StaffDashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import PatronDashboard from './pages/PatronDashboard';
+import SignUp from './pages/SignUp';
 import { getAuthToken } from './utils/auth';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -15,6 +17,15 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Login />} />
+        <Route path="/signup" element={<SignUp />} />
+        <Route
+          path="/patron"
+          element={
+            <ProtectedRoute>
+              <PatronDashboard />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/dashboard"
           element={

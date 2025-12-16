@@ -26,6 +26,9 @@ export const login = (username: string, password: string) =>
 export const logout = (session_id: string) =>
   api.post('/auth/logout', { session_id });
 
+export const register = (data: any) =>
+  api.post('/auth/register', data);
+
 // Patron APIs
 export const renewMembership = (patron_id: number) =>
   api.post('/patrons/renew-membership', { patron_id });
@@ -165,3 +168,13 @@ export const getPopularMaterials = (topN: number, materialType?: string, periodD
 
 export const getBranchPerformance = (dateFrom?: string, dateTo?: string) =>
   api.get('/statistics/branches/performance', { params: { date_from: dateFrom, date_to: dateTo } });
+
+// New Dashboard APIs
+export const getDashboardOverview = () =>
+  api.get('/dashboard/stats');
+
+export const getMonthlyActivity = () =>
+  api.get('/dashboard/activity');
+
+export const getPopularBooks = () =>
+  api.get('/dashboard/popular-books');

@@ -22,7 +22,16 @@ const Login: React.FC = () => {
       if (data.success) {
         setAuthToken(data.session_id);
         setUserId(data.user_id);
-        navigate('/dashboard');
+
+        // Role based redirection
+        const roles = data.roles || '';
+        if (roles.includes('Patron')) {
+          navigate('/patron');
+        } else if (roles.includes('Admin') || roles.includes('Director')) {
+          navigate('/admin');
+        } else {
+          navigate('/dashboard'); // Staff default
+        }
       } else {
         setError(data.message || 'Login failed');
       }

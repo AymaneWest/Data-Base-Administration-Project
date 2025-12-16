@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import logging
-from Routes import Auth_route, users_route, Library_Management_route, statistics_route,utility_route, patron_route, circulation_route,material_route, reservation_router, fine_route,reporting_route, batch_route
+from Routes import Auth_route, users_route, Library_Management_route, statistics_route,utility_route, patron_route, circulation_route,material_route, reservation_router, fine_route,reporting_route, batch_route, signup_route, dashboard_route
 logging.basicConfig(level=logging.INFO)
 
 app = FastAPI(
@@ -32,6 +32,8 @@ app.include_router(reservation_router.router)
 app.include_router(fine_route.router)
 app.include_router(reporting_route.router)
 app.include_router(batch_route.router)
+app.include_router(signup_route.router)
+app.include_router(dashboard_route.router)
 
 @app.get("/")
 async def root():
