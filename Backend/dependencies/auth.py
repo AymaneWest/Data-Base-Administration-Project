@@ -82,7 +82,7 @@ def get_user_oracle_credentials(user_id: int) -> dict:
                                'password': os.getenv('ORACLE_CATALOGER_PASS', 'CatalogPass123')},
             'ROLE_CIRCULATION_CLERK': {'username': 'user_clerk',
                                        'password': os.getenv('ORACLE_CLERK_PASS', 'ClerkPass123')},
-            'ROLE_PATRON': {'username': 'patron', 'password': os.getenv('ORACLE_PATRON_PASS', 'PatronPass123')}
+            'ROLE_PATRON': {'username': 'PATRON', 'password': os.getenv('ORACLE_PATRON_PASS', 'PatronPass123')}
         }
 
         return role_mapping.get(row[0], {'username': None, 'password': None})
