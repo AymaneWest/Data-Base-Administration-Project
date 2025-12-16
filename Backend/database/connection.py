@@ -3,7 +3,7 @@ from contextlib import contextmanager
 from fastapi import HTTPException, status
 import os
 import logging
-
+from typing import Dict, Any
 logger = logging.getLogger(__name__)
 
 # Configuration
@@ -111,4 +111,30 @@ def handle_oracle_error(e: oracledb.Error, oracle_user: str) -> dict:
         "detail": response_data["detail"],
         "oracle_error_code": f"ORA-{error_code:05d}",
         "executed_by_oracle_user": oracle_user
+    }
+
+
+def handle_oracle_error(error: oracledb.DatabaseError, oracle_user: str) -> Dict[str, Any]:
+    """
+    Handle Oracle database errors and return appropriate HTTP responses
+    """
+    error_code = error.args[0].code if error.args else None
+    error_message = str(error)
+
+    # Map Oracle error codes to HTTP status codes
+    if error_code in [20101, 20102, 20103, 20104]:  # Patron errors
+        status_code = status.HTTP_400_BAD_REQUEST
+    elif error_code in [20201, 20202, 20203, 20204]:  # Circulation errors
+        status_code = status.HTTP_400_BAD_REQUEST
+    elif error_code == 1403:  # NO_DATA_FOUND
+        status_code = status.HTTP_404_NOT_FOUND
+    elif error_code == 1:  # Unique constraint violation
+        status_code = status.HTTP_409_CONFLICT
+    else:
+        status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
+
+    return {
+        "error_code": error_code,
+        "error_message": error_message,
+        "oracle_user": oracle_user
     }

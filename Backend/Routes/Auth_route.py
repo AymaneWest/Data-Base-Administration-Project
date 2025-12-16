@@ -109,6 +109,51 @@ async def logout(
                 detail=f"Database error: {error.message}"
             )
 
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+
+security = HTTPBearer()
+
+@router.post("/logout2", response_model=StatusResponse)
+async def logout(
+        credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    """
+    Logout endpoint - Invalidates session
+    """
+    session_id = credentials.credentials
+
+    with get_admin_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            success = cursor.var(int)
+            message = cursor.var(str)
+
+            cursor.callproc("sp_logout_user", [
+                session_id,
+                success,
+                message
+            ])
+
+            logger.info(f"Session {session_id} logged out")
+
+            if success.getvalue() == 1:
+                return StatusResponse(
+                    success=True,
+                    message=message.getvalue()
+                )
+            else:
+                raise HTTPException(
+                    status_code=400,
+                    detail=message.getvalue()
+                )
+
+        except oracledb.DatabaseError as e:
+            error, = e.args
+            logger.error(f"Logout error: {error.message}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Database error: {error.message}"
+            )
 
 @router.post("/change-password", response_model=StatusResponse)
 async def change_password(
