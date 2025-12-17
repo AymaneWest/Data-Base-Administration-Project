@@ -752,3 +752,493 @@ BEGIN
         WHERE payment_date BETWEEN v_start_date AND v_end_date;
 END sp_get_monthly_stats;
 /
+
+
+-- ============================================================================
+-- PROCÉDURE STATISTIQUES POUR L'INTERFACE PATRON
+-- ============================================================================
+-- Description: Retourne toutes les statistiques nécessaires pour le dashboard patron
+-- Usage: Appelée lors de la connexion du patron ou actualisation du dashboard
+-- ============================================================================
+
+CREATE OR REPLACE PROCEDURE sp_get_patron_statistics (
+    p_patron_id IN NUMBER,
+    p_overview_cursor OUT SYS_REFCURSOR,
+    p_active_loans_cursor OUT SYS_REFCURSOR,
+    p_loan_history_cursor OUT SYS_REFCURSOR,
+    p_reservations_cursor OUT SYS_REFCURSOR,
+    p_fines_cursor OUT SYS_REFCURSOR,
+    p_recommended_cursor OUT SYS_REFCURSOR
+) AS
+BEGIN
+    -- ========================================================================
+    -- CURSOR 1: VUE D'ENSEMBLE (OVERVIEW) - Statistiques principales
+    -- ========================================================================
+    OPEN p_overview_cursor FOR
+    SELECT 
+        -- === INFORMATIONS PERSONNELLES ===
+        p.patron_id,
+        p.card_number,
+        p.first_name || ' ' || p.last_name AS full_name,
+        p.email,
+        p.phone,
+        p.membership_type,
+        p.account_status,
+        p.registration_date,
+        p.membership_expiry,
+        
+        -- Statut d'abonnement
+        CASE 
+            WHEN p.membership_expiry < SYSDATE THEN 'EXPIRED'
+            WHEN p.membership_expiry < SYSDATE + 30 THEN 'EXPIRING_SOON'
+            ELSE 'ACTIVE'
+        END AS membership_status_flag,
+        
+        TRUNC(p.membership_expiry - SYSDATE) AS days_until_expiry,
+        
+        -- === LIMITE D'EMPRUNT ===
+        p.max_borrow_limit,
+        
+        -- Emprunts actifs actuels
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND loan_status = 'Active') AS current_active_loans,
+        
+        -- Emprunts disponibles restants
+        p.max_borrow_limit - (SELECT COUNT(*) 
+                               FROM LOANS 
+                               WHERE patron_id = p.patron_id 
+                               AND loan_status = 'Active') AS loans_remaining,
+        
+        -- === STATISTIQUES EMPRUNTS ===
+        -- Total historique
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id) AS total_loans_ever,
+        
+        -- Emprunts retournés
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND loan_status = 'Returned') AS total_returns,
+        
+        -- Emprunts en retard
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND loan_status = 'Active' 
+         AND due_date < SYSDATE) AS overdue_count,
+        
+        -- Emprunts qui expirent bientôt (3 jours)
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND loan_status = 'Active' 
+         AND due_date BETWEEN SYSDATE AND SYSDATE + 3) AS expiring_soon_count,
+        
+        -- === AMENDES ===
+        NVL(p.total_fines_owed, 0) AS total_fines_owed,
+        
+        -- Nombre d'amendes impayées
+        (SELECT COUNT(*) 
+         FROM FINES 
+         WHERE patron_id = p.patron_id 
+         AND fine_status IN ('Unpaid', 'Partially Paid')) AS unpaid_fines_count,
+        
+        -- === RÉSERVATIONS ===
+        -- Réservations en attente
+        (SELECT COUNT(*) 
+         FROM RESERVATIONS 
+         WHERE patron_id = p.patron_id 
+         AND reservation_status = 'Pending') AS pending_reservations_count,
+        
+        -- Réservations prêtes à récupérer
+        (SELECT COUNT(*) 
+         FROM RESERVATIONS 
+         WHERE patron_id = p.patron_id 
+         AND reservation_status = 'Ready') AS ready_reservations_count,
+        
+        -- === ACTIVITÉ RÉCENTE (30 JOURS) ===
+        -- Emprunts ce mois
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND checkout_date >= ADD_MONTHS(SYSDATE, -1)) AS loans_this_month,
+        
+        -- Retours ce mois
+        (SELECT COUNT(*) 
+         FROM LOANS 
+         WHERE patron_id = p.patron_id 
+         AND return_date >= ADD_MONTHS(SYSDATE, -1)) AS returns_this_month,
+        
+        -- === BRANCHE D'INSCRIPTION ===
+        b.branch_name AS registered_branch,
+        b.phone AS branch_phone,
+        b.address AS branch_address,
+        b.opening_hours AS branch_hours,
+        
+        -- === INDICATEURS DE SANTÉ DU COMPTE ===
+        CASE 
+            WHEN p.account_status != 'Active' THEN 'WARNING'
+            WHEN p.total_fines_owed > 50 THEN 'WARNING'
+            WHEN EXISTS (
+                SELECT 1 FROM LOANS 
+                WHERE patron_id = p.patron_id 
+                AND loan_status = 'Active' 
+                AND due_date < SYSDATE
+            ) THEN 'WARNING'
+            ELSE 'GOOD'
+        END AS account_health_status
+        
+    FROM PATRONS p
+    LEFT JOIN BRANCHES b ON p.registered_branch_id = b.branch_id
+    WHERE p.patron_id = p_patron_id;
+    
+    -- ========================================================================
+    -- CURSOR 2: EMPRUNTS ACTIFS - Détails complets
+    -- ========================================================================
+    OPEN p_active_loans_cursor FOR
+    SELECT 
+        l.loan_id,
+        m.material_id,
+        m.title,
+        m.subtitle,
+        m.material_type,
+        m.isbn,
+        c.barcode,
+        c.copy_condition,
+        
+        -- Dates importantes
+        l.checkout_date,
+        l.due_date,
+        
+        -- Calcul jours restants/retard
+        CASE 
+            WHEN l.due_date >= SYSDATE 
+            THEN TRUNC(l.due_date - SYSDATE)
+            ELSE 0
+        END AS days_remaining,
+        
+        CASE 
+            WHEN l.due_date < SYSDATE 
+            THEN TRUNC(SYSDATE - l.due_date)
+            ELSE 0
+        END AS days_overdue,
+        
+        -- Statut de renouvellement
+        l.renewal_count,
+        CASE 
+            WHEN l.renewal_count >= 3 THEN 'MAX_RENEWALS_REACHED'
+            WHEN EXISTS (
+                SELECT 1 FROM RESERVATIONS 
+                WHERE material_id = c.material_id 
+                AND reservation_status = 'Pending'
+                AND patron_id != p_patron_id
+            ) THEN 'RESERVED_BY_OTHERS'
+            ELSE 'CAN_RENEW'
+        END AS renewal_status,
+        
+        -- Indicateurs visuels
+        CASE 
+            WHEN l.due_date < SYSDATE THEN 'OVERDUE'
+            WHEN TRUNC(l.due_date - SYSDATE) = 0 THEN 'DUE_TODAY'
+            WHEN TRUNC(l.due_date - SYSDATE) <= 3 THEN 'DUE_SOON'
+            ELSE 'NORMAL'
+        END AS status_flag,
+        
+        -- Informations branche
+        b.branch_name,
+        b.phone AS branch_phone,
+        
+        -- Informations auteur (premier auteur)
+        (SELECT a.first_name || ' ' || a.last_name
+         FROM MATERIAL_AUTHORS ma
+         JOIN AUTHORS a ON ma.author_id = a.author_id
+         WHERE ma.material_id = m.material_id
+         AND ROWNUM = 1) AS author_name,
+        
+        -- Couverture/Image (placeholder)
+        m.isbn AS cover_isbn,
+        
+        -- Amende potentielle si en retard
+        CASE 
+            WHEN l.due_date < SYSDATE 
+            THEN TRUNC(SYSDATE - l.due_date) * 2.00
+            ELSE 0
+        END AS potential_fine
+        
+    FROM LOANS l
+    JOIN COPIES c ON l.copy_id = c.copy_id
+    JOIN MATERIALS m ON c.material_id = m.material_id
+    LEFT JOIN BRANCHES b ON c.branch_id = b.branch_id
+    WHERE l.patron_id = p_patron_id
+      AND l.loan_status = 'Active'
+    ORDER BY 
+        CASE 
+            WHEN l.due_date < SYSDATE THEN 1
+            WHEN l.due_date <= SYSDATE + 3 THEN 2
+            ELSE 3
+        END,
+        l.due_date ASC;
+    
+    -- ========================================================================
+    -- CURSOR 3: HISTORIQUE DES EMPRUNTS (20 derniers)
+    -- ========================================================================
+    OPEN p_loan_history_cursor FOR
+    SELECT 
+        l.loan_id,
+        m.title,
+        m.material_type,
+        l.checkout_date,
+        l.due_date,
+        l.return_date,
+        l.loan_status,
+        
+        -- Durée d'emprunt
+        TRUNC(NVL(l.return_date, SYSDATE) - l.checkout_date) AS loan_duration_days,
+        
+        -- Statut retour
+        CASE 
+            WHEN l.return_date IS NULL THEN 'ACTIVE'
+            WHEN l.return_date <= l.due_date THEN 'ON_TIME'
+            WHEN l.return_date > l.due_date THEN 'LATE'
+            ELSE l.loan_status
+        END AS return_status,
+        
+        -- Retard éventuel
+        CASE 
+            WHEN l.return_date > l.due_date 
+            THEN TRUNC(l.return_date - l.due_date)
+            ELSE 0
+        END AS days_late,
+        
+        -- Amende associée
+        (SELECT NVL(SUM(amount_due), 0)
+         FROM FINES 
+         WHERE loan_id = l.loan_id) AS fine_amount,
+        
+        l.renewal_count,
+        b.branch_name
+        
+    FROM LOANS l
+    JOIN COPIES c ON l.copy_id = c.copy_id
+    JOIN MATERIALS m ON c.material_id = m.material_id
+    LEFT JOIN BRANCHES b ON c.branch_id = b.branch_id
+    WHERE l.patron_id = p_patron_id
+    ORDER BY l.checkout_date DESC
+    FETCH FIRST 20 ROWS ONLY;
+    
+    -- ========================================================================
+    -- CURSOR 4: RÉSERVATIONS
+    -- ========================================================================
+    OPEN p_reservations_cursor FOR
+    SELECT 
+        r.reservation_id,
+        m.material_id,
+        m.title,
+        m.subtitle,
+        m.material_type,
+        m.isbn,
+        
+        -- Dates
+        r.reservation_date,
+        r.notification_date,
+        r.pickup_deadline,
+        
+        -- Statut et position
+        r.reservation_status,
+        r.queue_position,
+        
+        -- Calculs temporels
+        TRUNC(SYSDATE - r.reservation_date) AS days_waiting,
+        
+        CASE 
+            WHEN r.reservation_status = 'Ready' 
+                 AND r.pickup_deadline IS NOT NULL
+            THEN TRUNC(r.pickup_deadline - SYSDATE)
+            ELSE NULL
+        END AS days_to_pickup,
+        
+        -- Disponibilité estimée pour réservations en attente
+        CASE 
+            WHEN r.reservation_status = 'Pending'
+            THEN r.queue_position || ' in queue'
+            WHEN r.reservation_status = 'Ready'
+            THEN 'Ready for pickup'
+            ELSE r.reservation_status
+        END AS status_text,
+        
+        -- Alerte pickup
+        CASE 
+            WHEN r.reservation_status = 'Ready' 
+                 AND r.pickup_deadline < SYSDATE 
+            THEN 'EXPIRED'
+            WHEN r.reservation_status = 'Ready' 
+                 AND r.pickup_deadline <= SYSDATE + 1 
+            THEN 'PICKUP_URGENT'
+            WHEN r.reservation_status = 'Ready' 
+            THEN 'READY'
+            ELSE 'WAITING'
+        END AS alert_level,
+        
+        -- Branche où récupérer
+        b.branch_name AS pickup_branch,
+        c.barcode AS reserved_copy_barcode,
+        
+        -- Auteur
+        (SELECT a.first_name || ' ' || a.last_name
+         FROM MATERIAL_AUTHORS ma
+         JOIN AUTHORS a ON ma.author_id = a.author_id
+         WHERE ma.material_id = m.material_id
+         AND ROWNUM = 1) AS author_name
+        
+    FROM RESERVATIONS r
+    JOIN MATERIALS m ON r.material_id = m.material_id
+    LEFT JOIN COPIES c ON r.fulfilled_by_copy_id = c.copy_id
+    LEFT JOIN BRANCHES b ON c.branch_id = b.branch_id
+    WHERE r.patron_id = p_patron_id
+      AND r.reservation_status IN ('Pending', 'Ready')
+    ORDER BY 
+        CASE r.reservation_status
+            WHEN 'Ready' THEN 1
+            WHEN 'Pending' THEN 2
+        END,
+        r.reservation_date ASC;
+    
+    -- ========================================================================
+    -- CURSOR 5: AMENDES
+    -- ========================================================================
+    OPEN p_fines_cursor FOR
+    SELECT 
+        f.fine_id,
+        f.fine_type,
+        f.amount_due,
+        f.amount_paid,
+        f.amount_due - f.amount_paid AS balance_due,
+        f.date_assessed,
+        f.payment_date,
+        f.fine_status,
+        
+        -- Ancienneté de l'amende
+        TRUNC(SYSDATE - f.date_assessed) AS days_outstanding,
+        
+        -- Matériel associé
+        m.title AS related_material,
+        m.material_type,
+        
+        -- Prêt associé
+        l.checkout_date AS loan_checkout_date,
+        l.due_date AS loan_due_date,
+        l.return_date AS loan_return_date,
+        
+        -- Calcul retard si overdue fine
+        CASE 
+            WHEN f.fine_type = 'Overdue' 
+                 AND l.return_date IS NOT NULL
+            THEN TRUNC(l.return_date - l.due_date)
+            ELSE NULL
+        END AS days_overdue_caused_fine,
+        
+        -- Indicateur urgence
+        CASE 
+            WHEN f.fine_status = 'Unpaid' 
+                 AND TRUNC(SYSDATE - f.date_assessed) > 60 
+            THEN 'URGENT'
+            WHEN f.fine_status = 'Unpaid' 
+                 AND TRUNC(SYSDATE - f.date_assessed) > 30 
+            THEN 'WARNING'
+            ELSE 'NORMAL'
+        END AS urgency_level
+        
+    FROM FINES f
+    LEFT JOIN LOANS l ON f.loan_id = l.loan_id
+    LEFT JOIN COPIES c ON l.copy_id = c.copy_id
+    LEFT JOIN MATERIALS m ON c.material_id = m.material_id
+    WHERE f.patron_id = p_patron_id
+    ORDER BY 
+        CASE f.fine_status
+            WHEN 'Unpaid' THEN 1
+            WHEN 'Partially Paid' THEN 2
+            ELSE 3
+        END,
+        f.date_assessed DESC;
+    
+    -- ========================================================================
+    -- CURSOR 6: RECOMMANDATIONS (Matériaux similaires aux emprunts récents)
+    -- ========================================================================
+    OPEN p_recommended_cursor FOR
+    SELECT DISTINCT
+        m.material_id,
+        m.title,
+        m.subtitle,
+        m.material_type,
+        m.isbn,
+        m.publication_year,
+        m.available_copies,
+        m.total_copies,
+        
+        -- Auteur
+        (SELECT a.first_name || ' ' || a.last_name
+         FROM MATERIAL_AUTHORS ma
+         JOIN AUTHORS a ON ma.author_id = a.author_id
+         WHERE ma.material_id = m.material_id
+         AND ROWNUM = 1) AS author_name,
+        
+        -- Genre principal
+        (SELECT g.genre_name
+         FROM MATERIAL_GENRES mg
+         JOIN GENRES g ON mg.genre_id = g.genre_id
+         WHERE mg.material_id = m.material_id
+         AND mg.is_primary_genre = 'Y'
+         AND ROWNUM = 1) AS primary_genre,
+        
+        -- Popularité
+        (SELECT COUNT(*) 
+         FROM LOANS l
+         JOIN COPIES c ON l.copy_id = c.copy_id
+         WHERE c.material_id = m.material_id
+         AND l.checkout_date >= ADD_MONTHS(SYSDATE, -3)) AS recent_checkouts,
+        
+        -- Disponibilité
+        CASE 
+            WHEN m.available_copies > 0 THEN 'AVAILABLE'
+            ELSE 'ALL_CHECKED_OUT'
+        END AS availability_status,
+        
+        -- Raison de recommandation
+        'Based on your reading history' AS recommendation_reason
+        
+    FROM MATERIALS m
+    WHERE m.material_id IN (
+        -- Matériaux du même genre que les emprunts récents du patron
+        SELECT DISTINCT mg2.material_id
+        FROM LOANS l
+        JOIN COPIES c ON l.copy_id = c.copy_id
+        JOIN MATERIAL_GENRES mg1 ON c.material_id = mg1.material_id
+        JOIN MATERIAL_GENRES mg2 ON mg1.genre_id = mg2.genre_id
+        WHERE l.patron_id = p_patron_id
+          AND l.checkout_date >= ADD_MONTHS(SYSDATE, -6)
+          AND mg2.material_id != c.material_id
+    )
+    AND m.material_id NOT IN (
+        -- Exclure ce que le patron a déjà emprunté
+        SELECT DISTINCT c.material_id
+        FROM LOANS l
+        JOIN COPIES c ON l.copy_id = c.copy_id
+        WHERE l.patron_id = p_patron_id
+    )
+    AND m.available_copies > 0
+    ORDER BY recent_checkouts DESC, m.date_added DESC
+    FETCH FIRST 10 ROWS ONLY;
+    
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Patron not found');
+    WHEN OTHERS THEN
+        RAISE_APPLICATION_ERROR(-20002, 'Error retrieving patron statistics: ' || SQLERRM);
+END sp_get_patron_statistics;
+/
+
+
+
