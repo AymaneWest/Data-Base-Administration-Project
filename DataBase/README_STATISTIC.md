@@ -4,6 +4,9 @@ Version : 1.0
 Date : Novembre 2025
 Base de données : Oracle PL/SQL
 
+> **Note :** La procédure `sp_get_patron_statistics` a été ajoutée à cette documentation pour fournir les statistiques détaillées nécessaires au dashboard patron.
+
+
 ## 📑 Table of Contents
 
 1.Admin Dashboard
@@ -181,4 +184,52 @@ Base de données : Oracle PL/SQL
 | Performance | indexes, jointures optimisées                      |
 | Sécurité    | vérifier les permissions applicatives              |
 | REF CURSOR  | à fermer côté application                          |
+
+
+##📊 sp_get_patron_statistics
+
+###📝 Description
+| Élément     | Détail                                                   |
+| ----------- | -------------------------------------------------------- |
+| Type        | Procédure stockée Oracle                                 |
+| Nom         | `sp_get_patron_statistics`                               |
+| Objectif    | Fournir les statistiques nécessaires au dashboard patron |
+| Utilisation | Connexion du patron / actualisation du dashboard         |
+| Sortie      | 6 curseurs `SYS_REFCURSOR`                               |
+
+###📥 Paramètre d’entrée
+| Paramètre   | Type   | Description                  | Obligatoire |
+| ----------- | ------ | ---------------------------- | ----------- |
+| p_patron_id | NUMBER | Identifiant unique du patron | ✅ Oui       |
+
+###📤 Paramètres de sortie
+| Curseur               | Type          | Description                             |
+| --------------------- | ------------- | --------------------------------------- |
+| p_overview_cursor     | SYS_REFCURSOR | Vue d’ensemble et statistiques globales |
+| p_active_loans_cursor | SYS_REFCURSOR | Emprunts en cours avec détails          |
+| p_loan_history_cursor | SYS_REFCURSOR | Historique des 20 derniers emprunts     |
+| p_reservations_cursor | SYS_REFCURSOR | Réservations actives et prêtes          |
+| p_fines_cursor        | SYS_REFCURSOR | Amendes impayées et historique          |
+| p_recommended_cursor  | SYS_REFCURSOR | Recommandations personnalisées          |
+
+###📊 Contenu des curseurs
+| Curseur      | Données principales                                         |
+| ------------ | ----------------------------------------------------------- |
+| Overview     | Infos patron, statut abonnement, emprunts, amendes, alertes |
+| Active Loans | Livres empruntés, dates, retard, renouvellement             |
+| Loan History | Historique, durée, statut de retour                         |
+| Reservations | Réservations, position, délai de récupération               |
+| Fines        | Montants dus/payés, ancienneté, urgence                     |
+| Recommended  | Documents similaires disponibles                            |
+
+###🧪 Exemple d’appel (PL/SQL)
+| Étape | Description                            |
+| ----- | -------------------------------------- |
+| 1     | Déclarer les curseurs                  |
+| 2     | Appeler `sp_get_patron_statistics`     |
+| 3     | Traiter les résultats côté application |
+
+
+---
+📌 **Fin de la documentation des procédures stockées du Library Management System – Version 1.0**
 
