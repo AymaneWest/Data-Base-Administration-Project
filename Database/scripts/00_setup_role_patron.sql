@@ -141,7 +141,7 @@ BEGIN
             is_active
         ) VALUES (
             user_rec.user_id,
-            (SELECT role_id FROM PROJET_ADMIN.ROLES WHERE role_code = 'ROLE_PATRON'),
+            (SELECT role_id into v_role_id FROM PROJET_ADMIN.ROLES WHERE role_code = 'ROLE_PATRON'),
             SYSDATE,
             'Y'
         );

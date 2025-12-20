@@ -480,3 +480,38 @@ async def get_user_info(auth: dict = Depends(require_authentication)):
         "roles": auth["roles"],
         "session_status": auth["session_status"]
     }
+
+@router.get("/branches")
+async def get_branches(auth: dict = Depends(require_authentication)):
+    """
+    Get all library branches
+    """
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            cursor = conn.cursor()
+            try:
+                cursor.execute("""
+                    SELECT 
+                        branch_id,
+                        branch_name,
+                        address,
+                        phone,
+                        email,
+                        opening_hours,
+                        branch_capacity,
+                        library_id
+                    FROM branches
+                    ORDER BY branch_name
+                """)
+                
+                columns = [col[0].lower() for col in cursor.description]
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                return results
+
+            except oracledb.DatabaseError as e:
+                return handle_oracle_error(e, oracle_user)
+    except HTTPException:
+        raise

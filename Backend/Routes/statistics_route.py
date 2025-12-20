@@ -98,6 +98,100 @@ async def get_admin_dashboard(
 # SECTION 2: PATRON DETAILS ENDPOINT
 # ============================================================================
 
+@router.get("/patrons/me", response_model=PatronDetailsResponse)
+async def get_my_patron_details(
+        auth: dict = Depends(require_authentication)
+):
+    """
+    Get patron details for the currently authenticated user
+    Automatically finds patron_id from user_id
+    """
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+    user_id = auth["user_id"]
+
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            cursor = conn.cursor()
+            
+            # First, get patron_id from user_id
+            cursor.execute("""
+                SELECT patron_id 
+                FROM patrons 
+                WHERE user_id = :user_id
+            """, [user_id])
+            
+            patron_row = cursor.fetchone()
+            if not patron_row:
+                raise HTTPException(
+                    status_code=404,
+                    detail="No patron record found for this user"
+                )
+            
+            patron_id = int(patron_row[0])
+            
+            # Now get patron details using the existing procedure
+            info_cursor = cursor.var(oracledb.CURSOR)
+            loans_cursor = cursor.var(oracledb.CURSOR)
+            fines_cursor = cursor.var(oracledb.CURSOR)
+            reservations_cursor = cursor.var(oracledb.CURSOR)
+
+            cursor.callproc("sp_get_patron_details", [
+                patron_id,
+                info_cursor,
+                loans_cursor,
+                fines_cursor,
+                reservations_cursor
+            ])
+
+            # Fetch patron info
+            info_result = info_cursor.getvalue().fetchone()
+            if not info_result:
+                raise HTTPException(status_code=404, detail=f"Patron {patron_id} not found")
+
+            info_columns = [col[0].lower() for col in info_cursor.getvalue().description]
+            patron_info = PatronInfo(**dict(zip(info_columns, info_result)))
+
+            # Fetch loans
+            loans = []
+            loans_result = loans_cursor.getvalue()
+            if loans_result:
+                loans_columns = [col[0].lower() for col in loans_result.description]
+                for row in loans_result:
+                    loans.append(PatronLoan(**dict(zip(loans_columns, row))))
+
+            # Fetch fines
+            fines = []
+            fines_result = fines_cursor.getvalue()
+            if fines_result:
+                fines_columns = [col[0].lower() for col in fines_result.description]
+                for row in fines_result:
+                    fines.append(PatronFine(**dict(zip(fines_columns, row))))
+
+            # Fetch reservations
+            reservations = []
+            res_result = reservations_cursor.getvalue()
+            if res_result:
+                res_columns = [col[0].lower() for col in res_result.description]
+                for row in res_result:
+                    reservations.append(PatronReservation(**dict(zip(res_columns, row))))
+
+            return PatronDetailsResponse(
+                patron_info=patron_info,
+                loans=loans,
+                fines=fines,
+                reservations=reservations
+            )
+
+    except HTTPException:
+        raise
+    except oracledb.DatabaseError as e:
+        return handle_oracle_error(e, oracle_user)
+    except Exception as e:
+        logger.error(f"Unexpected error in get_my_patron_details: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
 @router.get("/patrons/{patron_id}/details", response_model=PatronDetailsResponse)
 async def get_patron_details(
         patron_id: int,

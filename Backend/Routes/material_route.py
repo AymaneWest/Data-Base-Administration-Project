@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
 import oracledb
 from dependencies.auth import require_authentication
@@ -177,12 +177,137 @@ async def delete_material(
 
 @router.get("/browse")
 async def browse_materials(
-        search: str = None,
+        search: Optional[str] = Query(None),
+        genre: Optional[str] = Query(None),
+        material_type: Optional[str] = Query(None),
+        availability: Optional[str] = Query(None),
+        sort_by: Optional[str] = Query("relevance"),
+        auth: dict = Depends(require_authentication)
+):
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            cursor = conn.cursor()
+
+            try:
+                # Build base query
+                query = """
+                    SELECT 
+                        m.material_id,
+                        m.title,
+                        m.subtitle,
+                        m.material_type,
+                        m.isbn,
+                        m.publication_year,
+                        m.language,
+                        MAX(DBMS_LOB.SUBSTR(m.description, 4000, 1)) AS description,
+                        m.total_copies,
+                        m.available_copies,
+                        m.is_reference,
+                        m.is_new_release,
+                        m.date_added,
+                        p.publisher_name,
+                        LISTAGG(DISTINCT a.first_name || ' ' || a.last_name, ', ') WITHIN GROUP (ORDER BY ma.author_sequence) AS authors,
+                        LISTAGG(DISTINCT g.genre_name, ', ') WITHIN GROUP (ORDER BY g.genre_name) AS genres,
+                        COUNT(DISTINCT CASE WHEN c.copy_status = 'Available' THEN c.copy_id END) AS available_count,
+                        COUNT(DISTINCT CASE WHEN c.copy_status = 'Checked Out' THEN c.copy_id END) AS checked_out_count,
+                        COUNT(DISTINCT CASE WHEN c.copy_status = 'Reserved' THEN c.copy_id END) AS reserved_count
+                    FROM MATERIALS m
+                    LEFT JOIN PUBLISHERS p ON m.publisher_id = p.publisher_id
+                    LEFT JOIN MATERIAL_AUTHORS ma ON m.material_id = ma.material_id
+                    LEFT JOIN AUTHORS a ON ma.author_id = a.author_id
+                    LEFT JOIN MATERIAL_GENRES mg ON m.material_id = mg.material_id
+                    LEFT JOIN GENRES g ON mg.genre_id = g.genre_id
+                    LEFT JOIN COPIES c ON m.material_id = c.material_id
+                    WHERE 1=1
+                """
+                
+                params_dict = {}
+                
+                # Add filters to WHERE clause
+                if search:
+                    search_param = f"%{search.lower()}%"
+                    query += " AND (LOWER(m.title) LIKE :search OR LOWER(a.first_name || ' ' || a.last_name) LIKE :search OR LOWER(m.isbn) LIKE :search OR LOWER(DBMS_LOB.SUBSTR(m.description, 4000, 1)) LIKE :search)"
+                    params_dict['search'] = search_param
+                
+                if genre:
+                    query += " AND g.genre_name = :genre"
+                    params_dict['genre'] = genre
+                
+                if material_type:
+                    query += " AND LOWER(m.material_type) = LOWER(:material_type)"
+                    params_dict['material_type'] = material_type
+                
+                # Single GROUP BY clause
+                query += """
+                    GROUP BY 
+                        m.material_id, m.title, m.subtitle, m.material_type, m.isbn,
+                        m.publication_year, m.language, m.total_copies,
+                        m.available_copies, m.is_reference, m.is_new_release, m.date_added, p.publisher_name
+                """
+                
+                # Add HAVING for availability
+                if availability:
+                    if availability == "available":
+                        query += " HAVING COUNT(DISTINCT CASE WHEN c.copy_status = 'Available' THEN c.copy_id END) > 0"
+                    elif availability == "checked-out":
+                        query += " HAVING COUNT(DISTINCT CASE WHEN c.copy_status = 'Checked Out' THEN c.copy_id END) > 0"
+                    elif availability == "reserved":
+                        query += " HAVING COUNT(DISTINCT CASE WHEN c.copy_status = 'Reserved' THEN c.copy_id END) > 0"
+                
+                # Add ORDER BY
+                if sort_by == "title":
+                    query += " ORDER BY m.title ASC"
+                elif sort_by == "author":
+                    query += " ORDER BY authors ASC"
+                elif sort_by == "newest":
+                    query += " ORDER BY m.date_added DESC"
+                else:
+                    if search:
+                        query += " ORDER BY CASE WHEN LOWER(m.title) LIKE :search THEN 1 WHEN LOWER(a.first_name || ' ' || a.last_name) LIKE :search THEN 2 ELSE 3 END, m.date_added DESC"
+                    else:
+                        query += " ORDER BY m.date_added DESC"
+
+                cursor.execute(query, params_dict) if params_dict else cursor.execute(query)
+                
+                columns = [col[0].lower() for col in cursor.description]
+                results = []
+                for row in cursor.fetchall():
+                    material = dict(zip(columns, row))
+                    available_count = material.get('available_count', 0) or 0
+                    checked_out_count = material.get('checked_out_count', 0) or 0
+                    reserved_count = material.get('reserved_count', 0) or 0
+                    
+                    if available_count > 0:
+                        material['availability_status'] = 'available'
+                    elif reserved_count > 0:
+                        material['availability_status'] = 'reserved'
+                    elif checked_out_count > 0:
+                        material['availability_status'] = 'checked-out'
+                    else:
+                        material['availability_status'] = 'unavailable'
+                    
+                    results.append(material)
+                
+                return results
+
+            except oracledb.DatabaseError as e:
+                return handle_oracle_error(e, oracle_user)
+
+    except HTTPException:
+        raise
+
+
+@router.get("/search/suggestions")
+async def get_search_suggestions(
+        q: str = Query(..., min_length=1),
+        limit: int = Query(10, ge=1, le=20),
         auth: dict = Depends(require_authentication)
 ):
     """
-    Browse all materials with full details for patron viewing
-    Returns materials with authors, genres, and copy availability
+    Get search suggestions/autocomplete for titles, authors, and ISBNs
     """
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
@@ -192,56 +317,72 @@ async def browse_materials(
             cursor = conn.cursor()
 
             try:
-                # Build query to get materials with details
+                search_term = f"%{q.lower()}%"
+                
+                # Get suggestions from titles, authors, and ISBNs
                 query = """
                     SELECT DISTINCT
-                        m.material_id,
-                        m.title,
-                        m.subtitle,
-                        m.material_type,
-                        m.isbn,
-                        m.publication_year,
-                        m.language,
-                        m.description,
-                        m.total_copies,
-                        m.available_copies,
-                        m.is_reference,
-                        m.is_new_release,
-                        p.publisher_name,
-                        LISTAGG(DISTINCT a.full_name, ', ') WITHIN GROUP (ORDER BY ma.author_sequence) AS authors,
-                        LISTAGG(DISTINCT g.genre_name, ', ') WITHIN GROUP (ORDER BY g.genre_name) AS genres
+                        'title' as type,
+                        m.title as suggestion,
+                        m.material_id
                     FROM MATERIALS m
-                    LEFT JOIN PUBLISHERS p ON m.publisher_id = p.publisher_id
-                    LEFT JOIN MATERIAL_AUTHORS ma ON m.material_id = ma.material_id
-                    LEFT JOIN AUTHORS a ON ma.author_id = a.author_id
-                    LEFT JOIN MATERIAL_GENRES mg ON m.material_id = mg.material_id
-                    LEFT JOIN GENRES g ON mg.genre_id = g.genre_id
-                    WHERE 1=1
+                    WHERE LOWER(m.title) LIKE :search
+                    AND ROWNUM <= :limit
+                    
+                    UNION ALL
+                    
+                    SELECT DISTINCT
+                        'author' as type,
+                        a.first_name || ' ' || a.last_name as suggestion,
+                        NULL as material_id
+                    FROM AUTHORS a
+                    JOIN MATERIAL_AUTHORS ma ON a.author_id = ma.author_id
+                    WHERE LOWER(a.first_name || ' ' || a.last_name) LIKE :search
+                    AND ROWNUM <= :limit
+                    
+                    UNION ALL
+                    
+                    SELECT DISTINCT
+                        'isbn' as type,
+                        m.isbn as suggestion,
+                        m.material_id
+                    FROM MATERIALS m
+                    WHERE LOWER(m.isbn) LIKE :search
+                    AND ROWNUM <= :limit
                 """
                 
-                params = []
-                
-                # Add search filter if provided
-                if search:
-                    query += " AND (LOWER(m.title) LIKE :search OR LOWER(a.full_name) LIKE :search OR m.isbn LIKE :search)"
-                    params.append(f"%{search.lower()}%")
-                
-                query += """
-                    GROUP BY 
-                        m.material_id, m.title, m.subtitle, m.material_type, m.isbn,
-                        m.publication_year, m.language, m.description, m.total_copies,
-                        m.available_copies, m.is_reference, m.is_new_release, p.publisher_name
-                    ORDER BY m.date_added DESC
-                """
-
-                if params:
-                    cursor.execute(query, [params[0]])
-                else:
-                    cursor.execute(query)
+                cursor.execute(query, [search_term, limit])
                 
                 columns = [col[0].lower() for col in cursor.description]
-                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()[:limit]]
                 
+                return results
+
+            except oracledb.DatabaseError as e:
+                return handle_oracle_error(e, oracle_user)
+
+    except HTTPException:
+        raise
+
+
+@router.get("/genres")
+async def get_genres(
+        auth: dict = Depends(require_authentication)
+):
+    """
+    Get all available genres
+    """
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute("SELECT genre_id, genre_name FROM genres ORDER BY genre_name")
+                columns = [col[0].lower() for col in cursor.description]
+                results = [dict(zip(columns, row)) for row in cursor.fetchall()]
                 return results
 
             except oracledb.DatabaseError as e:
