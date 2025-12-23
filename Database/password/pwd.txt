@@ -1,0 +1,2 @@
+CREATE USER projet_admin IDENTIFIED BY StrongPassword123
+CREATE USER projet_admin IDENTIFIED BY strongPassword
