@@ -13,7 +13,6 @@ def get_session_from_db(session_id: str) -> Optional[dict]:
     """Retrieve session from SESSION_MANAGEMENT table"""
     with get_admin_connection() as conn:
         cursor = conn.cursor()
-
         try:
             query = """
                 SELECT 
@@ -24,10 +23,8 @@ def get_session_from_db(session_id: str) -> Optional[dict]:
             """
             cursor.execute(query, {"session_id": session_id})
             row = cursor.fetchone()
-
             if not row:
                 return None
-
             return {
                 "user_id": row[0],
                 "session_status": row[1],
@@ -38,11 +35,11 @@ def get_session_from_db(session_id: str) -> Optional[dict]:
             return None
 
 
+
 def get_user_oracle_credentials(user_id: int) -> dict:
     """Get Oracle username and password based on user's highest priority role"""
     with get_admin_connection() as conn:
         cursor = conn.cursor()
-
         query = """
             SELECT r.role_code
             FROM USER_ROLES ur
@@ -64,13 +61,13 @@ def get_user_oracle_credentials(user_id: int) -> dict:
         """
         cursor.execute(query, {"user_id": user_id})
         row = cursor.fetchone()
-
+        
         if not row:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No valid role found for user"
             )
-
+        
         role_mapping = {
             'ROLE_SYS_ADMIN': {'username': 'user_sysadmin',
                                'password': os.getenv('ORACLE_SYSADMIN_PASS', 'SysAdminPass123')},
@@ -82,9 +79,10 @@ def get_user_oracle_credentials(user_id: int) -> dict:
                                'password': os.getenv('ORACLE_CATALOGER_PASS', 'CatalogPass123')},
             'ROLE_CIRCULATION_CLERK': {'username': 'user_clerk',
                                        'password': os.getenv('ORACLE_CLERK_PASS', 'ClerkPass123')},
-            'ROLE_PATRON': {'username': 'PATRON', 'password': os.getenv('ORACLE_PATRON_PASS', 'PatronPass123')}
+            'ROLE_PATRON': {'username': 'user_patron', 
+                           'password': os.getenv('ORACLE_PATRON_PASS', 'PatronPass123')}
         }
-
+        
         return role_mapping.get(row[0], {'username': None, 'password': None})
 
 
@@ -92,7 +90,6 @@ def get_user_roles_list(user_id: int) -> List[str]:
     """Get all roles for a user as a list"""
     with get_admin_connection() as conn:
         cursor = conn.cursor()
-
         query = """
             SELECT r.role_code
             FROM USER_ROLES ur
@@ -106,13 +103,31 @@ def get_user_roles_list(user_id: int) -> List[str]:
         return [row[0] for row in cursor.fetchall()]
 
 
+def get_patron_id(user_id: int) -> Optional[int]:
+    """Get patron_id linked to this user_id"""
+    with get_admin_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            query = """
+                SELECT patron_id
+                FROM PATRONS
+                WHERE user_id = :user_id
+            """
+            cursor.execute(query, {"user_id": user_id})
+            row = cursor.fetchone()
+            return row[0] if row else None
+        except Exception as e:
+            logger.error(f"Error fetching patron_id: {str(e)}")
+            return None
+
+
 async def require_authentication(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """
     Main authentication dependency - validates session and returns user info with Oracle credentials.
     Use this in all protected routes.
     """
     session_id = credentials.credentials
-
+    
     # Get session from database
     session_data = get_session_from_db(session_id)
     if not session_data:
@@ -121,17 +136,16 @@ async def require_authentication(credentials: HTTPAuthorizationCredentials = Dep
             detail="Invalid session. Please login again.",
             headers={"WWW-Authenticate": "Bearer"}
         )
-
+    
     # Validate session using procedure
     with get_admin_connection() as conn:
         cursor = conn.cursor()
         is_valid = cursor.var(int)
         user_id = cursor.var(int)
         message = cursor.var(str)
-
+        
         try:
             cursor.callproc('sp_validate_session', [session_id, is_valid, user_id, message])
-
             if is_valid.getvalue() != 1:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -144,7 +158,7 @@ async def require_authentication(credentials: HTTPAuthorizationCredentials = Dep
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Session validation failed"
             )
-
+    
     # Get Oracle credentials and roles
     oracle_creds = get_user_oracle_credentials(session_data["user_id"])
     if not oracle_creds['username']:
@@ -152,9 +166,12 @@ async def require_authentication(credentials: HTTPAuthorizationCredentials = Dep
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No Oracle user mapping found for your role"
         )
-
+    
     roles = get_user_roles_list(session_data["user_id"])
-
+    
+    # Get patron_id if user has patron role
+    patron_id = get_patron_id(session_data["user_id"])
+    
     return {
         "session_id": session_id,
         "user_id": session_data["user_id"],
@@ -162,5 +179,6 @@ async def require_authentication(credentials: HTTPAuthorizationCredentials = Dep
         "oracle_username": oracle_creds['username'],
         "oracle_password": oracle_creds['password'],
         "roles": roles,
-        "session_status": session_data["session_status"]
+        "session_status": session_data["session_status"],
+        "patron_id": patron_id  # Added patron_id
     }

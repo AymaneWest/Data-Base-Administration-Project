@@ -30,9 +30,9 @@ class AddPatronRequest(BaseRequest):
         return v
 
 class AddPatronResponse(StatusResponse):
-    patron_id: int = Field(..., gt=0, description="New patron ID")
-    membership_expiry: date = Field(..., description="Membership expiry date")
-    max_borrow_limit: int = Field(..., ge=0, description="Maximum borrow limit")
+    patron_id: Optional[int] = Field(None, description="New patron ID")
+    membership_expiry: Optional[str] = Field(None, description="Membership expiry date")
+    max_borrow_limit: Optional[int] = Field(None, description="Maximum borrow limit")
 
 class UpdatePatronRequest(BaseRequest):
     patron_id: int = Field(..., gt=0, description="Patron ID")

@@ -41,12 +41,15 @@ class FulfillReservationResponse(BaseResponse):
 
 
 # Endpoints
-@router.post("/place", response_model=PlaceReservationResponse)
-async def place_reservation(
-        request: PlaceReservationRequest,
-        auth: dict = Depends(require_authentication)
+@router.get("/active")
+async def get_active_reservations(
+    status: Optional[str] = None,
+    auth: dict = Depends(require_authentication)
 ):
-    """Place a reservation for a material"""
+    """
+    Get all active reservations with optional status filter
+    Status can be: Pending, Ready, Expired, or None for all
+    """
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
 
@@ -55,31 +58,103 @@ async def place_reservation(
             cursor = conn.cursor()
 
             try:
-                # Create OUT parameter for reservation ID
-                reservation_id = cursor.var(int)
+                query = """
+                    SELECT 
+                        r.reservation_id,
+                        r.material_id,
+                        m.title AS material_title,
+                        m.material_type,
+                        r.patron_id,
+                        p.first_name || ' ' || p.last_name AS patron_name,
+                        p.email AS patron_email,
+                        p.phone AS patron_phone,
+                        r.reservation_status,
+                        TO_CHAR(r.reservation_date, 'YYYY-MM-DD HH24:MI:SS') AS reservation_date,
+                        TO_CHAR(r.pickup_deadline, 'YYYY-MM-DD') AS pickup_deadline,
+                        r.queue_position,
+                        b.branch_name
+                    FROM RESERVATIONS r
+                    JOIN MATERIALS m ON r.material_id = m.material_id
+                    JOIN PATRONS p ON r.patron_id = p.patron_id
+                    LEFT JOIN BRANCHES b ON p.registered_branch_id = b.branch_id
+                    WHERE 1=1
+                """
+                
+                params = {}
+                
+                if status:
+                    query += " AND UPPER(r.reservation_status) = UPPER(:status)"
+                    params["status"] = status
+                else:
+                    # Only show active statuses by default
+                    query += " AND r.reservation_status IN ('Pending', 'Ready', 'Expired')"
+                
+                query += " ORDER BY r.reservation_date DESC"
+                
+                cursor.execute(query, params)
+                
+                columns = [col[0].lower() for col in cursor.description]
+                results = []
+                for row in cursor.fetchall():
+                    results.append(dict(zip(columns, row)))
+                
+                return {
+                    "success": True,
+                    "count": len(results),
+                    "reservations": results
+                }
 
+            except oracledb.DatabaseError as e:
+                error_response = handle_oracle_error(e, oracle_user)
+                return {
+                    "success": False,
+                    "message": "Error fetching reservations",
+                    "count": 0,
+                    "reservations": [],
+                    **error_response
+                }
+
+    except HTTPException:
+        raise
+
+
+
+@router.post("/place", response_model=PlaceReservationResponse)
+async def place_reservation(
+        request: PlaceReservationRequest,
+        auth: dict = Depends(require_authentication)
+):
+    """Place a reservation for a material"""
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            cursor = conn.cursor()
+            try:
+                reservation_id = cursor.var(int)
                 cursor.callproc("sp_place_reservation", [
                     request.material_id,
                     request.patron_id,
                     reservation_id
                 ])
-
                 return PlaceReservationResponse(
                     success=True,
                     message="Reservation placed successfully",
                     reservation_id=reservation_id.getvalue()
                 )
-
             except oracledb.DatabaseError as e:
-                error_response = handle_oracle_error(e, oracle_user)
+                error_obj, = e.args
                 return PlaceReservationResponse(
                     success=False,
-                    message="Error placing reservation",
-                    **error_response
+                    message=str(error_obj.message) if hasattr(error_obj, 'message') else "Error placing reservation"
                 )
-
     except HTTPException:
         raise
+    except Exception as e:
+        return PlaceReservationResponse(
+            success=False,
+            message=f"Unexpected error: {str(e)}"
+        )
 
 
 @router.post("/cancel", response_model=CancelReservationResponse)

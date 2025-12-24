@@ -109,7 +109,24 @@ async def add_patron(
                 )
 
             except oracledb.DatabaseError as e:
-                return handle_oracle_error(e, oracle_user)
+                error_obj, = e.args
+                error_message = str(error_obj.message) if hasattr(error_obj, 'message') else str(e)
+                
+                # Extract user-friendly message from Oracle error
+                if error_obj.code == 20101:
+                    message = "Card number or email already exists"
+                elif error_obj.code == 20102:
+                    message = "Invalid branch ID"
+                else:
+                    message = error_message
+                
+                return AddPatronResponse(
+                    success=False,
+                    message=message,
+                    patron_id=None,
+                    membership_expiry=None,
+                    max_borrow_limit=None
+                )
 
     except HTTPException:
         raise
@@ -278,7 +295,7 @@ async def add_material(
 ):
     """
     Add material - AUTOMATICALLY PROTECTED
-    Uses ROLE-BASED connection
+    Uses ROLE-BASED connection (user's Oracle user based on their role)
     """
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
@@ -311,7 +328,24 @@ async def add_material(
                 )
 
             except oracledb.DatabaseError as e:
-                return handle_oracle_error(e, oracle_user)
+                error_obj, = e.args
+                error_message = str(error_obj.message) if hasattr(error_obj, 'message') else str(e)
+                
+                # Extract user-friendly message from Oracle error
+                if error_obj.code == 20301:
+                    message = "Invalid publisher ID"
+                elif error_obj.code == 20302:
+                    message = "ISBN already exists"
+                elif error_obj.code == 20303:
+                    message = "Material creation failed"
+                else:
+                    message = error_message
+                
+                return AddMaterialResponse(
+                    success=False,
+                    message=message,
+                    material_id=None
+                )
 
     except HTTPException:
         raise
