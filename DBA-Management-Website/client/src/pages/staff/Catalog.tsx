@@ -157,6 +157,7 @@ export default function Catalog() {
                                                 <Table>
                                                     <TableHeader>
                                                         <TableRow>
+                                                            <TableHead className="w-[80px]">Image</TableHead>
                                                             <TableHead>Title</TableHead>
                                                             <TableHead>Author(s)</TableHead>
                                                             <TableHead>ISBN</TableHead>
@@ -168,6 +169,16 @@ export default function Catalog() {
                                                     <TableBody>
                                                         {searchResults.map((material, index) => (
                                                             <TableRow key={index}>
+                                                                <TableCell>
+                                                                    <div className="h-[60px] w-[40px] rounded overflow-hidden bg-muted">
+                                                                        <img
+                                                                            src={material.cover_image || "/covers/placeholder.jpg"}
+                                                                            alt={material.title}
+                                                                            className="h-full w-full object-cover"
+                                                                            onError={(e) => e.currentTarget.src = "/covers/placeholder.jpg"}
+                                                                        />
+                                                                    </div>
+                                                                </TableCell>
                                                                 <TableCell className="font-medium">{material.title}</TableCell>
                                                                 <TableCell>{material.authors || 'N/A'}</TableCell>
                                                                 <TableCell>{material.isbn || 'N/A'}</TableCell>

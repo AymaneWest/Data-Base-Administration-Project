@@ -1,63 +1,80 @@
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Book } from "lucide-react";
-import bookPlaceholder from "@assets/generated_images/book_cover_placeholder_047ab69e.png";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { BookOpen } from "lucide-react";
+import { Link } from "wouter";
 
-export interface BookCardProps {
+interface BookCardProps {
   id: number;
   title: string;
   author: string;
-  coverUrl?: string;
   availability: "available" | "reserved" | "checked-out";
   genre?: string;
-  onClick?: () => void;
+  imageUrl?: string;
 }
 
-export function BookCard({ id, title, author, coverUrl, availability, genre, onClick }: BookCardProps) {
+export function BookCard({ id, title, author, availability, genre, imageUrl }: BookCardProps) {
   const statusColors = {
-    available: "bg-green-600 dark:bg-green-700",
-    reserved: "bg-yellow-600 dark:bg-yellow-700",
-    "checked-out": "bg-muted dark:bg-muted"
+    available: "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 shadow-sm shadow-emerald-500/20",
+    reserved: "bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 shadow-sm shadow-amber-500/20",
+    "checked-out": "bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 shadow-sm shadow-rose-500/20",
   };
 
   const statusLabels = {
     available: "Available",
     reserved: "Reserved",
-    "checked-out": "Checked Out"
+    "checked-out": "Checked Out",
+  };
+
+  // Fallback to placeholder if no image or error loading
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    e.currentTarget.src = "/covers/placeholder.jpg";
   };
 
   return (
-    <Card 
-      className="overflow-hidden hover-elevate active-elevate-2 cursor-pointer group transition-all" 
-      onClick={onClick}
-      data-testid={`card-book-${id}`}
-    >
-      <div className="aspect-[2/3] bg-muted relative overflow-hidden">
-        {coverUrl ? (
-          <img src={coverUrl} alt={title} className="w-full h-full object-cover" />
+    <Card className="flex flex-col h-full bg-card/50 backdrop-blur-sm border-white/5 hover:border-primary/50 transition-all duration-300 group overflow-hidden">
+      <div className="relative aspect-[2/3] w-full overflow-hidden">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+            onError={handleImageError}
+          />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
-            <img src={bookPlaceholder} alt={title} className="w-full h-full object-cover opacity-50" />
-            <Book className="h-16 w-16 text-muted-foreground absolute" />
+          <div className="flex h-full w-full items-center justify-center bg-muted/30">
+            <BookOpen className="h-16 w-16 text-muted-foreground/30" />
           </div>
         )}
-        <Badge className={`absolute top-2 right-2 ${statusColors[availability]}`}>
-          {statusLabels[availability]}
-        </Badge>
+        <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 transform translate-y-2 group-hover:translate-y-0">
+          <Badge className={`${statusColors[availability]} backdrop-blur-md border-0 uppercase text-[10px] tracking-wider font-bold`}>
+            {statusLabels[availability]}
+          </Badge>
+        </div>
       </div>
-      <div className="p-4 space-y-2">
-        <h3 className="font-semibold text-sm line-clamp-2 min-h-[2.5rem]" data-testid={`text-book-title-${id}`}>
+
+      <CardHeader className="p-4 pb-2 space-y-1">
+        {genre && (
+          <span className="text-[10px] uppercase tracking-widest text-primary/80 font-semibold">
+            {genre}
+          </span>
+        )}
+        <h3 className="font-heading text-lg font-bold leading-tight group-hover:text-primary transition-colors line-clamp-2">
           {title}
         </h3>
-        <p className="text-sm text-muted-foreground line-clamp-1" data-testid={`text-book-author-${id}`}>
+        <p className="text-sm text-muted-foreground font-medium line-clamp-1">
           {author}
         </p>
-        {genre && (
-          <Badge variant="secondary" className="text-xs">
-            {genre}
-          </Badge>
-        )}
-      </div>
+      </CardHeader>
+
+      <CardFooter className="p-4 mt-auto pt-2">
+        <Link to={`/catalog/${id}`} className="w-full">
+          <Button className="w-full bg-primary/10 hover:bg-primary/20 text-primary border-0 font-semibold" variant="outline">
+            View Details
+          </Button>
+        </Link>
+      </CardFooter>
     </Card>
   );
 }

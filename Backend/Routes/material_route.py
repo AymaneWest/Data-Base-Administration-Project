@@ -239,6 +239,7 @@ async def browse_materials(
                     m.is_reference,
                     m.is_new_release,
                     m.date_added,
+                    m.cover_image,
                     p.publisher_name,
                     NVL(ma.authors, '') AS authors,
                     NVL(mg.genres, '') AS genres,
