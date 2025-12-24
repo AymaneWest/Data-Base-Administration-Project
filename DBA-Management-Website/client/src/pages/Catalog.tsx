@@ -38,7 +38,7 @@ export default function Catalog() {
   const [genres, setGenres] = useState<Genre[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setLocation] = useLocation();
-  
+
   // Search and filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
@@ -95,7 +95,7 @@ export default function Catalog() {
       }
 
       const response = await api.browseMaterials(filters);
-      
+
       let results: Material[] = [];
       if (response?.data) {
         if (Array.isArray(response.data)) {
@@ -116,7 +116,7 @@ export default function Catalog() {
           }
 
           if (selectedMaterialTypes.length > 0 && material.material_type) {
-            const typeMatch = selectedMaterialTypes.some(type => 
+            const typeMatch = selectedMaterialTypes.some(type =>
               material.material_type?.toLowerCase().includes(type.toLowerCase())
             );
             if (!typeMatch) {
@@ -154,7 +154,7 @@ export default function Catalog() {
   };
 
   const handleGenreToggle = (genreName: string) => {
-    setSelectedGenres(prev => 
+    setSelectedGenres(prev =>
       prev.includes(genreName)
         ? prev.filter(g => g !== genreName)
         : [...prev, genreName]
@@ -162,7 +162,7 @@ export default function Catalog() {
   };
 
   const handleMaterialTypeToggle = (type: string) => {
-    setSelectedMaterialTypes(prev => 
+    setSelectedMaterialTypes(prev =>
       prev.includes(type)
         ? prev.filter(t => t !== type)
         : [...prev, type]
@@ -170,7 +170,7 @@ export default function Catalog() {
   };
 
   const handleAvailabilityToggle = (availability: string) => {
-    setSelectedAvailability(prev => 
+    setSelectedAvailability(prev =>
       prev.includes(availability)
         ? prev.filter(a => a !== availability)
         : [...prev, availability]
@@ -190,19 +190,19 @@ export default function Catalog() {
     "Journal": "Journals",
   };
 
-  const availableMaterialTypes = Array.isArray(materials) 
+  const availableMaterialTypes = Array.isArray(materials)
     ? Array.from(new Set(materials.map(m => m.material_type).filter(Boolean))) as string[]
     : [];
 
   return (
     <div className="min-h-screen bg-background">
       <PatronHeader />
-      
+
       <div className="border-b bg-muted/30">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-4xl font-bold mb-4">Library Catalog</h1>
-          <SearchBar 
-            placeholder="Search by title, author, ISBN, or keyword..." 
+          <SearchBar
+            placeholder="Search by title, author, ISBN, or keyword..."
             onSearch={handleSearch}
             showSuggestions={true}
           />
@@ -219,8 +219,8 @@ export default function Catalog() {
                     <h3 className="font-semibold mb-4">Availability</h3>
                     <div className="space-y-3">
                       <div className="flex items-center gap-2">
-                        <Checkbox 
-                          id="available" 
+                        <Checkbox
+                          id="available"
                           data-testid="checkbox-available"
                           checked={selectedAvailability.includes("available")}
                           onCheckedChange={() => handleAvailabilityToggle("available")}
@@ -228,8 +228,8 @@ export default function Catalog() {
                         <Label htmlFor="available" className="cursor-pointer">Available Now</Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Checkbox 
-                          id="reserved" 
+                        <Checkbox
+                          id="reserved"
                           data-testid="checkbox-reserved"
                           checked={selectedAvailability.includes("reserved")}
                           onCheckedChange={() => handleAvailabilityToggle("reserved")}
@@ -237,8 +237,8 @@ export default function Catalog() {
                         <Label htmlFor="reserved" className="cursor-pointer">Reserved</Label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Checkbox 
-                          id="checked-out" 
+                        <Checkbox
+                          id="checked-out"
                           data-testid="checkbox-checked-out"
                           checked={selectedAvailability.includes("checked-out")}
                           onCheckedChange={() => handleAvailabilityToggle("checked-out")}
@@ -253,8 +253,8 @@ export default function Catalog() {
                     <div className="space-y-3 max-h-64 overflow-y-auto">
                       {genres.map((genre) => (
                         <div key={genre.genre_id} className="flex items-center gap-2">
-                          <Checkbox 
-                            id={`genre-${genre.genre_id}`} 
+                          <Checkbox
+                            id={`genre-${genre.genre_id}`}
                             data-testid={`checkbox-genre-${genre.genre_name.toLowerCase().replace(/\s+/g, '-')}`}
                             checked={selectedGenres.includes(genre.genre_name)}
                             onCheckedChange={() => handleGenreToggle(genre.genre_name)}
@@ -273,8 +273,8 @@ export default function Catalog() {
                       {availableMaterialTypes.length > 0 ? (
                         availableMaterialTypes.map((type) => (
                           <div key={type} className="flex items-center gap-2">
-                            <Checkbox 
-                              id={`type-${type}`} 
+                            <Checkbox
+                              id={`type-${type}`}
                               data-testid={`checkbox-type-${type.toLowerCase()}`}
                               checked={selectedMaterialTypes.includes(type)}
                               onCheckedChange={() => handleMaterialTypeToggle(type)}
@@ -287,8 +287,8 @@ export default function Catalog() {
                       ) : (
                         <div className="space-y-3">
                           <div className="flex items-center gap-2">
-                            <Checkbox 
-                              id="book" 
+                            <Checkbox
+                              id="book"
                               data-testid="checkbox-type-book"
                               checked={selectedMaterialTypes.includes("Book")}
                               onCheckedChange={() => handleMaterialTypeToggle("Book")}
@@ -296,8 +296,8 @@ export default function Catalog() {
                             <Label htmlFor="book" className="cursor-pointer">Books</Label>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Checkbox 
-                              id="audiobook" 
+                            <Checkbox
+                              id="audiobook"
                               data-testid="checkbox-type-audiobook"
                               checked={selectedMaterialTypes.includes("Audiobook")}
                               onCheckedChange={() => handleMaterialTypeToggle("Audiobook")}
@@ -305,8 +305,8 @@ export default function Catalog() {
                             <Label htmlFor="audiobook" className="cursor-pointer">Audiobooks</Label>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Checkbox 
-                              id="dvd" 
+                            <Checkbox
+                              id="dvd"
                               data-testid="checkbox-type-dvd"
                               checked={selectedMaterialTypes.includes("DVD")}
                               onCheckedChange={() => handleMaterialTypeToggle("DVD")}
@@ -379,12 +379,12 @@ export default function Catalog() {
             ) : Array.isArray(materials) && materials.length > 0 ? (
               <div className={viewMode === "grid" ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6" : "space-y-4"}>
                 {materials.map((material) => {
-                  const availability = material.availability_status === "unavailable" 
-                    ? "checked-out" 
+                  const availability = material.availability_status === "unavailable"
+                    ? "checked-out"
                     : (material.availability_status || "available");
-                  
+
                   return (
-                    <div 
+                    <div
                       key={material.material_id}
                       onClick={() => setLocation(`/catalog/${material.material_id}`)}
                       className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -395,6 +395,7 @@ export default function Catalog() {
                         author={material.authors || "Unknown Author"}
                         availability={availability as "available" | "reserved" | "checked-out"}
                         genre={material.genres?.split(", ")[0]}
+                        imageUrl={material.cover_image}
                       />
                     </div>
                   );
