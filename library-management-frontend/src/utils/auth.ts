@@ -17,3 +17,16 @@ export const getUserId = (): number => {
 export const setUserId = (userId: number) => {
   localStorage.setItem('user_id', userId.toString());
 };
+
+export const getUserRoles = (): string[] => {
+  const roles = localStorage.getItem('user_roles');
+  return roles ? JSON.parse(roles) : [];
+};
+
+export const setUserRoles = (roles: string[]) => {
+  localStorage.setItem('user_roles', JSON.stringify(roles));
+};
+
+export const removeUserRoles = () => {
+  localStorage.removeItem('user_roles');
+};

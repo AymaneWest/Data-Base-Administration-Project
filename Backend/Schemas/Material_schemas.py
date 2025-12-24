@@ -19,7 +19,7 @@ class AddMaterialRequest(BaseRequest):
     total_copies: int = Field(..., ge=0, description="Total copies")
 
 class AddMaterialResponse(StatusResponse):
-    material_id: int = Field(..., gt=0, description="New material ID")
+    material_id: Optional[int] = Field(None, description="New material ID")
 
 class AddCopyRequest(BaseRequest):
     material_id: int = Field(..., gt=0, description="Material ID")

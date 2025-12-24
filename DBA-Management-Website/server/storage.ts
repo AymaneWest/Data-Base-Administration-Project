@@ -1,0 +1,1 @@
+export { storage, db } from './db';

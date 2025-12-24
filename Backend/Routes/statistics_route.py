@@ -98,6 +98,132 @@ async def get_admin_dashboard(
 # SECTION 2: PATRON DETAILS ENDPOINT
 # ============================================================================
 
+@router.get("/patrons/me", response_model=PatronDetailsResponse)
+async def get_my_patron_details(
+        auth: dict = Depends(require_authentication)
+):
+    """
+    Get patron details for the currently authenticated user
+    Automatically finds patron_id from user_id
+    """
+    oracle_user = auth["oracle_username"]
+    oracle_pass = auth["oracle_password"]
+    user_id = auth["user_id"]
+
+    try:
+        with get_role_based_connection(oracle_user, oracle_pass) as conn:
+            with conn.cursor() as cursor:
+                # First, get patron_id from user_id
+                cursor.execute("""
+                    SELECT patron_id 
+                    FROM patrons 
+                    WHERE user_id = :user_id
+                """, [user_id])
+                
+                patron_row = cursor.fetchone()
+                if not patron_row:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="No patron record found for this user"
+                    )
+                
+                patron_id = int(patron_row[0])
+                
+                # Create output cursors
+                info_cursor = conn.cursor()
+                loans_cursor = conn.cursor()
+                fines_cursor = conn.cursor()
+                reservations_cursor = conn.cursor()
+
+                try:
+                    cursor.callproc("sp_get_patron_details", [
+                        patron_id,
+                        info_cursor,
+                        loans_cursor,
+                        fines_cursor,
+                        reservations_cursor
+                    ])
+
+                    # Fetch patron info
+                    info_columns = [col[0].lower() for col in info_cursor.description]
+                    info_result = info_cursor.fetchone()
+                    if not info_result:
+                        raise HTTPException(status_code=404, detail=f"Patron {patron_id} not found")
+                    
+                    # Convert to dict and clean datetime fields
+                    info_dict = dict(zip(info_columns, info_result))
+                    
+                    # Convert datetime to date for fields that need it
+                    datetime_to_date_fields = ['registration_date', 'membership_expiry']
+                    for field in datetime_to_date_fields:
+                        if field in info_dict and info_dict[field] is not None:
+                            if hasattr(info_dict[field], 'date'):
+                                info_dict[field] = info_dict[field].date()
+                    
+                    patron_info = PatronInfo(**info_dict)
+
+                    # Fetch loans
+                    loans = []
+                    if loans_cursor.description:
+                        loans_columns = [col[0].lower() for col in loans_cursor.description]
+                        for row in loans_cursor:
+                            loan_dict = dict(zip(loans_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['checkout_date', 'due_date', 'return_date']:
+                                if field in loan_dict and loan_dict[field] is not None:
+                                    if hasattr(loan_dict[field], 'date'):
+                                        loan_dict[field] = loan_dict[field].date()
+                            loans.append(PatronLoan(**loan_dict))
+
+                    # Fetch fines
+                    fines = []
+                    if fines_cursor.description:
+                        fines_columns = [col[0].lower() for col in fines_cursor.description]
+                        for row in fines_cursor:
+                            fine_dict = dict(zip(fines_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['fine_date', 'payment_date']:
+                                if field in fine_dict and fine_dict[field] is not None:
+                                    if hasattr(fine_dict[field], 'date'):
+                                        fine_dict[field] = fine_dict[field].date()
+                            fines.append(PatronFine(**fine_dict))
+
+                    # Fetch reservations
+                    reservations = []
+                    if reservations_cursor.description:
+                        res_columns = [col[0].lower() for col in reservations_cursor.description]
+                        for row in reservations_cursor:
+                            res_dict = dict(zip(res_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['reservation_date', 'expiry_date', 'notification_date']:
+                                if field in res_dict and res_dict[field] is not None:
+                                    if hasattr(res_dict[field], 'date'):
+                                        res_dict[field] = res_dict[field].date()
+                            reservations.append(PatronReservation(**res_dict))
+
+                    return PatronDetailsResponse(
+                        patron_info=patron_info,
+                        loans=loans,
+                        fines=fines,
+                        reservations=reservations
+                    )
+                finally:
+                    # Close all cursors
+                    info_cursor.close()
+                    loans_cursor.close()
+                    fines_cursor.close()
+                    reservations_cursor.close()
+
+    except HTTPException:
+        raise
+    except oracledb.DatabaseError as e:
+        return handle_oracle_error(e, oracle_user)
+    except Exception as e:
+        logger.error(f"Unexpected error in get_my_patron_details: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+
 @router.get("/patrons/{patron_id}/details", response_model=PatronDetailsResponse)
 async def get_patron_details(
         patron_id: int,
@@ -111,66 +237,100 @@ async def get_patron_details(
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
+            with conn.cursor() as cursor:
+                # Create output cursors
+                info_cursor = conn.cursor()
+                loans_cursor = conn.cursor()
+                fines_cursor = conn.cursor()
+                reservations_cursor = conn.cursor()
 
-            # Create output variables for cursors
-            info_cursor = cursor.var(oracledb.CURSOR)
-            loans_cursor = cursor.var(oracledb.CURSOR)
-            fines_cursor = cursor.var(oracledb.CURSOR)
-            reservations_cursor = cursor.var(oracledb.CURSOR)
+                try:
+                    cursor.callproc("sp_get_patron_details", [
+                        patron_id,
+                        info_cursor,
+                        loans_cursor,
+                        fines_cursor,
+                        reservations_cursor
+                    ])
 
-            cursor.callproc("sp_get_patron_details", [
-                patron_id,
-                info_cursor,
-                loans_cursor,
-                fines_cursor,
-                reservations_cursor
-            ])
+                    # Fetch patron info
+                    info_columns = [col[0].lower() for col in info_cursor.description]
+                    info_result = info_cursor.fetchone()
+                    if not info_result:
+                        raise HTTPException(status_code=404, detail=f"Patron {patron_id} not found")
+                    
+                    # Convert to dict and clean datetime fields
+                    info_dict = dict(zip(info_columns, info_result))
+                    
+                    # Convert datetime to date for fields that need it
+                    datetime_to_date_fields = ['registration_date', 'membership_expiry']
+                    for field in datetime_to_date_fields:
+                        if field in info_dict and info_dict[field] is not None:
+                            if hasattr(info_dict[field], 'date'):
+                                info_dict[field] = info_dict[field].date()
+                    
+                    patron_info = PatronInfo(**info_dict)
 
-            # Fetch patron info
-            info_result = info_cursor.getvalue().fetchone()
-            if not info_result:
-                raise HTTPException(status_code=404, detail=f"Patron {patron_id} not found")
+                    # Fetch loans
+                    loans = []
+                    if loans_cursor.description:
+                        loans_columns = [col[0].lower() for col in loans_cursor.description]
+                        for row in loans_cursor:
+                            loan_dict = dict(zip(loans_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['checkout_date', 'due_date', 'return_date']:
+                                if field in loan_dict and loan_dict[field] is not None:
+                                    if hasattr(loan_dict[field], 'date'):
+                                        loan_dict[field] = loan_dict[field].date()
+                            loans.append(PatronLoan(**loan_dict))
 
-            info_columns = [col[0].lower() for col in info_cursor.getvalue().description]
-            patron_info = PatronInfo(**dict(zip(info_columns, info_result)))
+                    # Fetch fines
+                    fines = []
+                    if fines_cursor.description:
+                        fines_columns = [col[0].lower() for col in fines_cursor.description]
+                        for row in fines_cursor:
+                            fine_dict = dict(zip(fines_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['fine_date', 'payment_date']:
+                                if field in fine_dict and fine_dict[field] is not None:
+                                    if hasattr(fine_dict[field], 'date'):
+                                        fine_dict[field] = fine_dict[field].date()
+                            fines.append(PatronFine(**fine_dict))
 
-            # Fetch loans
-            loans = []
-            loans_result = loans_cursor.getvalue()
-            if loans_result:
-                loans_columns = [col[0].lower() for col in loans_result.description]
-                for row in loans_result:
-                    loans.append(PatronLoan(**dict(zip(loans_columns, row))))
+                    # Fetch reservations
+                    reservations = []
+                    if reservations_cursor.description:
+                        res_columns = [col[0].lower() for col in reservations_cursor.description]
+                        for row in reservations_cursor:
+                            res_dict = dict(zip(res_columns, row))
+                            # Convert datetime fields if needed
+                            for field in ['reservation_date', 'expiry_date', 'notification_date']:
+                                if field in res_dict and res_dict[field] is not None:
+                                    if hasattr(res_dict[field], 'date'):
+                                        res_dict[field] = res_dict[field].date()
+                            reservations.append(PatronReservation(**res_dict))
 
-            # Fetch fines
-            fines = []
-            fines_result = fines_cursor.getvalue()
-            if fines_result:
-                fines_columns = [col[0].lower() for col in fines_result.description]
-                for row in fines_result:
-                    fines.append(PatronFine(**dict(zip(fines_columns, row))))
+                    return PatronDetailsResponse(
+                        patron_info=patron_info,
+                        loans=loans,
+                        fines=fines,
+                        reservations=reservations
+                    )
+                finally:
+                    # Close all cursors
+                    info_cursor.close()
+                    loans_cursor.close()
+                    fines_cursor.close()
+                    reservations_cursor.close()
 
-            # Fetch reservations
-            reservations = []
-            res_result = reservations_cursor.getvalue()
-            if res_result:
-                res_columns = [col[0].lower() for col in res_result.description]
-                for row in res_result:
-                    reservations.append(PatronReservation(**dict(zip(res_columns, row))))
-
-            return PatronDetailsResponse(
-                patron_info=patron_info,
-                loans=loans,
-                fines=fines,
-                reservations=reservations
-            )
-
+    except HTTPException:
+        raise
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
     except Exception as e:
         logger.error(f"Unexpected error in get_patron_details: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 
 # ============================================================================
@@ -191,27 +351,27 @@ async def get_expiring_loans(
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_expiring_loans", [
-                days_ahead,
-                branch_id,
-                result_cursor
-            ])
+                try:
+                    cur.callproc("sp_get_expiring_loans", [
+                        days_ahead,
+                        branch_id,
+                        result_cursor
+                    ])
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    # Convert alert_level string to Enum
-                    row_dict = dict(zip(columns, row))
-                    if 'alert_level' in row_dict:
-                        row_dict['alert_level'] = AlertLevel(row_dict['alert_level'])
-                    results.append(ExpiringLoan(**row_dict))
+                    columns = [c[0].lower() for c in result_cursor.description]
+                    results = []
+                    for row in result_cursor:
+                        row_dict = dict(zip(columns, row))
+                        if 'alert_level' in row_dict:
+                            row_dict['alert_level'] = AlertLevel(row_dict['alert_level'])
+                        results.append(ExpiringLoan(**row_dict))
 
-            return results
+                    return results
+                finally:
+                    result_cursor.close()
 
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
@@ -238,31 +398,32 @@ async def get_fines_report(
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
 
-    # Set default date_to if not provided
     if date_to is None:
         date_to = date.today()
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_fines_report", [
-                status_filter,
-                branch_id,
-                date_from,
-                date_to,
-                result_cursor
-            ])
+                try:
+                    cur.callproc("sp_get_fines_report", [
+                        status_filter,
+                        branch_id,
+                        date_from,
+                        date_to,
+                        result_cursor
+                    ])
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    results.append(FineReport(**dict(zip(columns, row))))
+                    columns = [c[0].lower() for c in result_cursor.description]
+                    results = [
+                        FineReport(**dict(zip(columns, row)))
+                        for row in result_cursor
+                    ]
 
-            return results
+                    return results
+                finally:
+                    result_cursor.close()
 
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
@@ -282,38 +443,32 @@ async def get_popular_materials(
         period_days: Optional[int] = Query(30, ge=1, le=365),
         auth: dict = Depends(require_authentication)
 ):
-    """
-    Get most popular materials within specified period
-    """
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_popular_materials", [
-                top_n,
-                material_type,
-                period_days,
-                result_cursor
-            ])
+                cur.callproc(
+                    "sp_get_popular_materials",
+                    [top_n, material_type, period_days, result_cursor]
+                )
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    results.append(PopularMaterial(**dict(zip(columns, row))))
+                columns = [c[0].lower() for c in result_cursor.description]
+                results = [
+                    PopularMaterial(**dict(zip(columns, row)))
+                    for row in result_cursor
+                ]
 
-            return results
+                result_cursor.close()
+                return results
 
     except oracledb.DatabaseError as e:
-        return handle_oracle_error(e, oracle_user)
-    except Exception as e:
-        logger.error(f"Unexpected error in get_popular_materials: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+        logger.error(f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
 # ============================================================================
@@ -332,7 +487,6 @@ async def get_branch_performance(
     oracle_user = auth["oracle_username"]
     oracle_pass = auth["oracle_password"]
 
-    # Set default values
     if date_from is None:
         today = date.today()
         date_from = date(today.year, today.month, 1)
@@ -341,23 +495,25 @@ async def get_branch_performance(
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_branch_performance", [
-                date_from,
-                date_to,
-                result_cursor
-            ])
+                try:
+                    cur.callproc("sp_get_branch_performance", [
+                        date_from,
+                        date_to,
+                        result_cursor
+                    ])
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    results.append(BranchPerformance(**dict(zip(columns, row))))
+                    columns = [c[0].lower() for c in result_cursor.description]
+                    results = [
+                        BranchPerformance(**dict(zip(columns, row)))
+                        for row in result_cursor
+                    ]
 
-            return results
+                    return results
+                finally:
+                    result_cursor.close()
 
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
@@ -383,22 +539,24 @@ async def get_expiring_reservations(
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_expiring_reservations", [
-                branch_id,
-                result_cursor
-            ])
+                try:
+                    cur.callproc("sp_get_expiring_reservations", [
+                        branch_id,
+                        result_cursor
+                    ])
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    results.append(ExpiringReservation(**dict(zip(columns, row))))
+                    columns = [c[0].lower() for c in result_cursor.description]
+                    results = [
+                        ExpiringReservation(**dict(zip(columns, row)))
+                        for row in result_cursor
+                    ]
 
-            return results
+                    return results
+                finally:
+                    result_cursor.close()
 
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
@@ -428,29 +586,32 @@ async def get_daily_activity(
 
     try:
         with get_role_based_connection(oracle_user, oracle_pass) as conn:
-            cursor = conn.cursor()
-            result_cursor = cursor.var(oracledb.CURSOR)
+            with conn.cursor() as cur:
+                result_cursor = conn.cursor()
 
-            cursor.callproc("sp_get_daily_activity", [
-                activity_date,
-                branch_id,
-                result_cursor
-            ])
+                try:
+                    cur.callproc("sp_get_daily_activity", [
+                        activity_date,
+                        branch_id,
+                        result_cursor
+                    ])
 
-            results = []
-            result_set = result_cursor.getvalue()
-            if result_set:
-                columns = [col[0].lower() for col in result_set.description]
-                for row in result_set:
-                    results.append(DailyActivity(**dict(zip(columns, row))))
+                    columns = [c[0].lower() for c in result_cursor.description]
+                    results = [
+                        DailyActivity(**dict(zip(columns, row)))
+                        for row in result_cursor
+                    ]
 
-            return results
+                    return results
+                finally:
+                    result_cursor.close()
 
     except oracledb.DatabaseError as e:
         return handle_oracle_error(e, oracle_user)
     except Exception as e:
         logger.error(f"Unexpected error in get_daily_activity: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
 
 
 # ============================================================================

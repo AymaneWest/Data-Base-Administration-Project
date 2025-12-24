@@ -17,6 +17,7 @@ INSERT INTO ROLES (role_id, role_code, role_name, role_description, is_active) V
 INSERT INTO ROLES (role_id, role_code, role_name, role_description, is_active) VALUES (3, 'ROLE_CATALOGER', 'Cataloger', 'Specialist in catalog management - adds new materials, updates metadata', 'Y');
 INSERT INTO ROLES (role_id, role_code, role_name, role_description, is_active) VALUES (4, 'ROLE_CIRCULATION_CLERK', 'Circulation Clerk', 'Handles day-to-day circulation - checkouts, returns, holds, patron services', 'Y');
 INSERT INTO ROLES (role_id, role_code, role_name, role_description, is_active) VALUES (5, 'ROLE_IT_SUPPORT', 'IT Support', 'Technical support - manages system, limited business data access', 'Y');
+INSERT INTO ROLES (role_id, role_code, role_name, role_description, is_active) VALUES (6, 'ROLE_PATRON', 'PATRON', 'CLIENT', 'Y');
 
 -- ============================================================================
 -- 2. INSERT PERMISSIONS TABLE

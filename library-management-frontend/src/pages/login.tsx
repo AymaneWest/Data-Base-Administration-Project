@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../services/api';
-import { setAuthToken, setUserId } from '../utils/auth';
+import { setAuthToken, setUserId, setUserRoles } from '../utils/auth';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -20,14 +20,48 @@ const Login: React.FC = () => {
       const data = response.data;
 
       if (data.success) {
+        // Store auth data
         setAuthToken(data.session_id);
         setUserId(data.user_id);
-        navigate('/dashboard');
+
+        // Backend returns roles as a string like "Admin,Staff" or just "Patron"
+        const rolesStr = data.roles || '';
+
+        // Split into array and trim
+        const rolesArray: string[] = rolesStr
+          .split(',')
+          .map((r: string) => r.trim())
+          .filter((r: string) => r.length > 0);
+
+        setUserRoles(rolesArray);
+
+        console.log('Login successful!', { rolesArray, rolesStr });
+
+        // Role-based redirection (backend uses ROLE_ prefix: ROLE_SYS_ADMIN, ROLE_STAFF, ROLE_PATRON)
+        // Check for admin roles first (highest priority)
+        if (rolesStr.includes('ADMIN') || rolesStr.includes('DIRECTOR')) {
+          navigate('/admin');
+        }
+        // Then check for staff roles
+        else if (rolesStr.includes('STAFF') || rolesStr.includes('LIBRARIAN')) {
+          navigate('/dashboard');
+        }
+        // Then check for patron role
+        else if (rolesStr.includes('PATRON')) {
+          navigate('/patron');
+        }
+        // Fallback
+        else {
+          console.warn('No recognized role found, defaulting to dashboard', rolesArray);
+          navigate('/dashboard');
+        }
       } else {
         setError(data.message || 'Login failed');
       }
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'An error occurred during login');
+      const errorMsg = err.response?.data?.detail || err.message || 'An error occurred during login';
+      console.error('Login error:', err);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

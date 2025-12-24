@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { logout } from '../services/api';
 import { getAuthToken, removeAuthToken, getUserId } from '../utils/auth';
 import * as api from '../services/api';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 
 const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -46,28 +47,43 @@ const AdminDashboard: React.FC = () => {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* View Selector */}
+        {/* View Selector / Navigation */}
         <div className="bg-white rounded-lg shadow mb-6 p-4">
           <div className="flex space-x-4">
             <button onClick={() => setActiveView('admin')}
               className={`px-6 py-3 rounded-lg font-medium ${activeView === 'admin' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
               Admin Functions
             </button>
-            <button onClick={() => setActiveView('staff')}
-              className={`px-6 py-3 rounded-lg font-medium ${activeView === 'staff' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              Staff Functions
+            <button onClick={() => navigate('/dashboard')}
+              className={`px-6 py-3 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700`}>
+              Go to Staff Dashboard
             </button>
-            <button onClick={() => setActiveView('patron')}
-              className={`px-6 py-3 rounded-lg font-medium ${activeView === 'patron' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}>
-              Patron View (Coming Soon)
+            <button onClick={() => navigate('/patron')}
+              className={`px-6 py-3 rounded-lg font-medium bg-teal-600 text-white hover:bg-teal-700`}>
+              Go to Patron Dashboard
             </button>
           </div>
         </div>
 
         {/* Content Area */}
         {activeView === 'admin' && <AdminFunctionsView userId={userId} onApiCall={handleApiCall} />}
-        {activeView === 'staff' && <StaffFunctionsView userId={userId} onApiCall={handleApiCall} />}
-        {activeView === 'patron' && <PatronViewPlaceholder />}
+        {/* Navigation to other dashboards handled by useEffect or direct links, but here we can render them or redirect */}
+        {/* If Admin wants to see Staff/Patron view, navigating to the actual route is better if they share the same layout.
+            However, the user wants "links on the admin page". The current toggle is fine if we render components.
+            Since StaffDashboard IS a page, we can import it? Or better, just redirect.
+            User said: "put links on the admin page to all the other pages"
+        */}
+        {activeView === 'staff' && (
+          <div className="text-center py-10">
+            <p className="mb-4">Redirecting to Staff Dashboard...</p>
+            {/* We could also just mount <StaffDashboard /> here if it doesn't rely on route params that are missing */}
+          </div>
+        )}
+        {activeView === 'patron' && (
+          <div className="text-center py-10">
+            <p className="mb-4">Redirecting to Patron Dashboard...</p>
+          </div>
+        )}
 
         {/* Results Display */}
         {result && (
@@ -122,12 +138,12 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold mb-4">User Management</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Get User Status</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <button onClick={() => onApiCall(() => api.getUserStatus(userData.user_id), 'User status retrieved')}
             className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
             Get Status
@@ -137,7 +153,7 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Get User Roles</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <button onClick={() => onApiCall(() => api.getUserRoles(userData.user_id), 'User roles retrieved')}
             className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
             Get Roles
@@ -147,9 +163,9 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Check Permission</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-2"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <input type="text" placeholder="Permission Code" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, permission_code: e.target.value})} />
+            onChange={(e) => setUserData({ ...userData, permission_code: e.target.value })} />
           <button onClick={() => onApiCall(() => api.checkPermission(userData), 'Permission checked')}
             className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
             Check Permission
@@ -159,9 +175,9 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Check Role</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-2"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <input type="text" placeholder="Role Code" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, role_code: e.target.value})} />
+            onChange={(e) => setUserData({ ...userData, role_code: e.target.value })} />
           <button onClick={() => onApiCall(() => api.checkRole(userData), 'Role checked')}
             className="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
             Check Role
@@ -171,9 +187,9 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Assign Role</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-2"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <input type="number" placeholder="Role ID" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, role_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, role_id: parseInt(e.target.value) })} />
           <button onClick={() => onApiCall(() => api.assignRole(userData), 'Role assigned')}
             className="w-full bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">
             Assign Role
@@ -183,9 +199,9 @@ const UserManagementSection: React.FC<{ userId: number; onApiCall: Function }> =
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Revoke Role</h3>
           <input type="number" placeholder="User ID" className="w-full px-3 py-2 border rounded-md mb-2"
-            onChange={(e) => setUserData({...userData, user_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, user_id: parseInt(e.target.value) })} />
           <input type="number" placeholder="Role ID" className="w-full px-3 py-2 border rounded-md mb-3"
-            onChange={(e) => setUserData({...userData, role_id: parseInt(e.target.value)})} />
+            onChange={(e) => setUserData({ ...userData, role_id: parseInt(e.target.value) })} />
           <button onClick={() => onApiCall(() => api.revokeRole(userData), 'Role revoked')}
             className="w-full bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700">
             Revoke Role
@@ -205,7 +221,7 @@ const ReportingSection: React.FC<{ onApiCall: Function }> = ({ onApiCall }) => {
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold mb-4">Reporting Functions</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Overdue Count</h3>
@@ -248,7 +264,7 @@ const BatchOperationsSection: React.FC<{ onApiCall: Function }> = ({ onApiCall }
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold mb-4">Batch Operations</h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Process Overdue Notifications</h3>
@@ -291,26 +307,85 @@ const BatchOperationsSection: React.FC<{ onApiCall: Function }> = ({ onApiCall }
   );
 };
 
+
+
 // Statistics Section
 const StatisticsSection: React.FC<{ onApiCall: Function }> = ({ onApiCall }) => {
   const [patronId, setPatronId] = useState('');
   const [daysAhead, setDaysAhead] = useState('3');
   const [topN, setTopN] = useState('10');
+  const [statsData, setStatsData] = useState<any>(null);
+  const [activityData, setActivityData] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    loadCharts();
+  }, []);
+
+  const loadCharts = async () => {
+    try {
+      const stats = await api.getDashboardOverview();
+      const activity = await api.getMonthlyActivity();
+      setStatsData(stats.data);
+      setActivityData(activity.data);
+    } catch (e) {
+      console.error("Failed to load charts", e);
+    }
+  };
+
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-bold mb-4">Statistics & Reports</h2>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold mb-3">Dashboard Stats</h3>
-          <p className="text-sm text-gray-600 mb-3">Get comprehensive dashboard statistics</p>
-          <button onClick={() => onApiCall(() => api.getDashboardStats(), 'Stats retrieved')}
-            className="w-full bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
-            Get Dashboard
-          </button>
-        </div>
 
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Key Metrics */}
+        {statsData && (
+          <div className="bg-white p-4 rounded-lg shadow">
+            <h3 className="text-lg font-semibold mb-4">Key Metrics</h3>
+            <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="p-4 bg-blue-50 rounded">
+                <p className="text-gray-500">Total Patrons</p>
+                <p className="text-2xl font-bold text-blue-600">{statsData.total_patrons}</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded">
+                <p className="text-gray-500">Active Loans</p>
+                <p className="text-2xl font-bold text-green-600">{statsData.active_loans}</p>
+              </div>
+              <div className="p-4 bg-yellow-50 rounded">
+                <p className="text-gray-500">Materials</p>
+                <p className="text-2xl font-bold text-yellow-600">{statsData.total_materials}</p>
+              </div>
+              <div className="p-4 bg-red-50 rounded">
+                <p className="text-gray-500">Outstanding Fines</p>
+                <p className="text-2xl font-bold text-red-600">${statsData.outstanding_fines || 0}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Activity Chart */}
+        {activityData.length > 0 && (
+          <div className="bg-white p-4 rounded-lg shadow h-80">
+            <h3 className="text-lg font-semibold mb-4">Monthly Activity</h3>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={activityData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month_year" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="total_checkouts" fill="#8884d8" name="Checkouts" />
+                <Bar dataKey="total_returns" fill="#82ca9d" name="Returns" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Existing buttons... */}
         <div className="bg-gray-50 p-4 rounded-lg">
           <h3 className="text-lg font-semibold mb-3">Patron Details</h3>
           <input type="number" placeholder="Patron ID" className="w-full px-3 py-2 border rounded-md mb-3"
