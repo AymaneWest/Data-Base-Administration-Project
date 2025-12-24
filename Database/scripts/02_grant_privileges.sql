@@ -152,5 +152,24 @@ GRANT EXECUTE ON sp_process_overdue_notifications TO ROLE_IT_SUPPORT;
 GRANT EXECUTE ON sp_expire_memberships TO ROLE_IT_SUPPORT;
 GRANT EXECUTE ON sp_cleanup_expired_reservations TO ROLE_IT_SUPPORT;
 
--- Vues techniques (si besoin de créer des vues sur les tables de logs)
--- GRANT SELECT ON AUDIT_LOG TO ROLE_IT_SUPPORT; -- (Si la table est accessible)
+
+--=============================================================================
+--  6. ROLE_PATRON(CLIENT)
+--=============================================================================
+
+-- === 1. Consultation du Catalogue (Recherche) ===
+-- Le patron doit pouvoir voir si un livre est dispo et voir les nouveautés
+GRANT EXECUTE ON sp_get_popular_materials TO ROLE_PATRON;
+GRANT EXECUTE ON fn_check_material_availability TO ROLE_PATRON;
+-- (Si vous avez une procédure de recherche par titre, ajoutez-la ici)
+
+-- === 2. Actions "Self-Service" (Réservations) ===
+-- Le patron peut réserver un livre ou annuler SA réservation
+GRANT EXECUTE ON sp_place_reservation TO ROLE_PATRON;
+GRANT EXECUTE ON sp_cancel_reservation TO ROLE_PATRON;
+
+-- === 3. Gestion de son Compte ===
+-- Voir ses statistiques (prêts, amendes) et changer son mot de passe
+GRANT EXECUTE ON sp_change_password TO ROLE_PATRON;
+GRANT EXECUTE ON fn_get_patron_statistics TO ROLE_PATRON;
+GRANT EXECUTE ON fn_calculate_total_fines TO ROLE_PATRON;

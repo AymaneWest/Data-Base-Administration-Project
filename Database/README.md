@@ -1,145 +1,122 @@
-# Data-Base-Administration-Project
-#  Oracle Database Administration Project 
+# 📚 Sécurité RBAC Oracle pour Système de Gestion de Bibliothèque (LMS)
+## 📝 Introduction
 
-This project is part of the **Database Administration module**.  
-It aims to design and implement an Oracle Database system that covers:
-- User and role management
-- Privileges and security
-- PL/SQL programming (procedures, functions, triggers)
-- Transaction control and error handling
+Ce projet met en place un modèle RBAC (Role-Based Access Control) pour sécuriser une base de données Oracle utilisée dans un Library Management System (LMS).
 
----
+Le RBAC est une approche qui attribue les permissions non pas directement aux utilisateurs, mais aux rôles, eux-mêmes liés aux missions métiers.
+Ce modèle améliore :
 
-## 👥 Team Members and Responsibilities
+la sécurité (principe du moindre privilège)
 
-| Member | Role | Responsibilities |
-|--------|------|------------------|
-| Student 1 | User & Role Management | Create users, roles, privileges, security policies |
-| Student 2 | Database Design | Create tables, relations, keys, constraints |
-| Student 3 | PL/SQL Procedures & Functions | Automate operations and data management |
-| Student 4 | Triggers & Transactions | Implement triggers, error handling, COMMIT/ROLLBACK logic |
+la gestion des droits
 
----
+la séparation des responsabilités
 
-## 🗂 Folder Structure
-```bash
-Database-Administration-Project/
-│
-├── docs/ → Reports and presentation
-├── scripts/ → SQL scripts (creation, privileges, inserts)
-├── plsql/ → Procedures, functions, triggers
-├── design/ → Diagrams and schema models
-├── tests/ → Test scripts
-├── team/ → Each member’s individual work
-├── backups/ → Dump files or export scripts
-└── README.md
-```
+Chaque utilisateur reçoit uniquement les autorisations nécessaires à ses tâches quotidiennes.
 
----
+# 🔐 Rôles définis dans le système
+## 1. ROLE_SYS_ADMIN
 
-## 📜 Naming Rules for Files
+Contrôle administratif complet
 
-| Type | Example |
-|------|----------|
-| User creation script | `01_create_users_roles.sql` |
-| Privilege assignment | `02_grant_privileges.sql` |
-| Table creation | `03_create_tables.sql` |
-| PL/SQL procedures | `06_procedures_functions.sql` |
-| Triggers | `07_triggers.sql` |
-| Tests | `test_procedures.sql` |
+Gestion des données sensibles
 
-✅ Always start files with a **two-digit number** to indicate execution order.  
-✅ Use **snake_case** (`lowercase_with_underscores`).  
-✅ End each file with a `/` to compile PL/SQL blocks correctly.
+Maintenance, procédures critiques, fonctions système
 
----
+2. ROLE_DIRECTOR
 
-## ⚙️ SQL Coding Rules
+Accès lecture seule
 
-1. Always write SQL keywords in **UPPERCASE** (e.g., `CREATE`, `SELECT`, `GRANT`).
-2. Add **comments** using `--` before each logical block.
-3. Test each script individually before pushing it.
-4. Always handle exceptions in PL/SQL.
-5. Use `COMMIT` only when all operations are verified.
+Consultation des rapports et supervision générale
 
----
+3. ROLE_CATALOGER
 
-## 🧠 Git Collaboration Rules
+Gestion complète du catalogue :
 
-1. Each member works in their **own branch**:  
-   - `Ilyass-roles`  
-   - `Aymane-design`  
-   - `Abdellah-procedures`  
-   - `Mouad-triggers`
-2. Commit messages must be clear:  
-   - ✅ `Add trigger to prevent deleting paid invoices`  
-   - ❌ `update file`
-3. Merge to `main` only after **team validation**.
-4. Never push `.dmp` or `.log` files.
+ajout
 
----
----
+modification
 
-## 🔒 Important Notes
+suppression de documents
 
-- Do **not modify** other members’ scripts without discussing it first.
-- Keep code clean and consistent.
-- Respect Oracle naming conventions and avoid reserved words.
+4. ROLE_CIRCULATION_CLERK
 
----
-# Example of the Directory :
-```bash
-📦 Database-Administration-Project/
-│
-├── 📁 docs/
-│   ├── Project_Report.pdf
-│   ├── Presentation_Slides.pptx
-│   ├── README.md
-│   └── Architecture_Diagram.png
-│
-├── 📁 scripts/
-│   ├── 01_create_users_roles.sql
-│   ├── 02_grant_privileges.sql
-│   ├── 03_create_tables.sql
-│   ├── 04_insert_sample_data.sql
-│   ├── 05_create_views.sql
-│   ├── 06_procedures_functions.sql
-│   ├── 07_triggers.sql
-│   ├── 08_transactions_tests.sql
-│   └── 09_cleanup_drop.sql
-│
-├── 📁 plsql/
-│   ├── add_employee_proc.sql
-│   ├── calc_salary_func.sql
-│   ├── prevent_delete_trigger.sql
-│   ├── error_handling_example.sql
-│   └── transaction_demo.sql
-│
-├── 📁 design/
-│   ├── conceptual_model.mcd       # From PowerDesigner
-│   ├── logical_model.ldm
-│   ├── physical_model.pdm
-│   ├── ERD_Diagram.png
-│   └── schema_description.md
-│
-├── 📁 tests/
-│   ├── test_users_privileges.sql
-│   ├── test_procedures.sql
-│   ├── test_triggers.sql
-│   └── test_transactions.sql
-│
-├── 📁 team/
-│   ├── student1_privileges.sql
-│   ├── student2_design.sql
-│   ├── student3_procedures.sql
-│   └── student4_triggers_transactions.sql
-│
-├── 📁 backups/
-│   ├── export_full_database.dmp
-│   ├── export_metadata_only.dmp
-│   └── backup_script.sh
-│
-├── 📄 README.md
-├── 📄 .gitignore
-└── 📄 project_info.txt
-```
+Gestion des opérations de circulation :
+
+prêts / retours
+
+réservations
+
+gestion des usagers
+
+paiement d’amendes
+
+5. ROLE_IT_SUPPORT
+
+Support technique
+
+Accès en lecture seule sur la configuration
+
+Exécution limitée de procédures de maintenance batch
+
+# 🛠️ Privilèges GRANT utilisés
+## ✔️ Droits EXECUTE sur les procédures PL/SQL
+
+Chaque rôle reçoit uniquement les droits nécessaires :
+
+ROLE_SYS_ADMIN : accès total à toutes les procédures (maintenance, adhésions, circulation, amendes, notifications…).
+
+ROLE_DIRECTOR : uniquement les procédures de reporting et de consultation.
+
+ROLE_CATALOGER : exécution des procédures de gestion du catalogue.
+
+ROLE_CIRCULATION_CLERK : exécution des procédures liées aux prêts, renouvellements, retours, amendes et gestion des usagers.
+
+ROLE_IT_SUPPORT : exécution des tâches techniques batch uniquement.
+
+Cette granularité garantit une séparation stricte des fonctions.
+
+## 🗄️ Privilèges SQL sur les tables
+ROLE_SYS_ADMIN
+
+Tous les privilèges (SELECT, INSERT, UPDATE, DELETE)
+
+Sur toutes les tables métier et configuration
+
+ROLE_DIRECTOR
+
+SELECT uniquement
+
+Lecture complète, aucune modification
+
+ROLE_CATALOGER
+
+CRUD complet sur les tables du catalogue
+
+Aucun accès aux tables de prêts ou de personnel
+
+ROLE_CIRCULATION_CLERK
+
+Gestion des usagers et des prêts (INSERT/UPDATE/DELETE là où nécessaire)
+
+Lecture du catalogue
+
+ROLE_IT_SUPPORT
+
+Lecture seule sur les tables de configuration (LIBRARIES, BRANCHES)
+
+Aucun accès en modification
+
+# 🔒 Conclusion
+
+L’implémentation RBAC permet :
+
+une sécurité renforcée
+
+une gestion optimisée des permissions
+
+une séparation stricte des responsabilités
+
+une réduction des risques d’erreurs ou d’accès non autorisés
+
+Ce système constitue une base solide pour un LMS sécurisé et conforme aux meilleures pratiques Oracle.

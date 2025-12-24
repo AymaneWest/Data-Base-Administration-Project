@@ -4,8 +4,9 @@
 -- OBJECTIF : Crée les rôles métier (Staff) et les utilisateurs de test
 --            correspondants, conformément à la liste des rôles.
 -- ============================================================================
+
 -- Étape 1 : Créer les Rôles "Staff" (les "profils" de la base de données)
-ALTER SESSION SET CONTAINER = XEPDB1;
+
 -- Rôle 1: L'administrateur système
 CREATE ROLE ROLE_SYS_ADMIN;
 
@@ -20,6 +21,9 @@ CREATE ROLE ROLE_CIRCULATION_CLERK;
 
 -- Rôle 5: Le support technique
 CREATE ROLE ROLE_IT_SUPPORT;
+
+--create role patron
+CREATE ROLE ROLE_PATRON;
 
 -- Étape 2 : Créer les Utilisateurs Oracle Fictifs (les "comptes")
 CREATE USER user_sysadmin IDENTIFIED BY "SysAdminPass123";
@@ -36,6 +40,10 @@ GRANT CREATE SESSION TO ROLE_DIRECTOR;
 GRANT CREATE SESSION TO ROLE_CATALOGER;
 GRANT CREATE SESSION TO ROLE_CIRCULATION_CLERK;
 GRANT CREATE SESSION TO ROLE_IT_SUPPORT;
+-- Droit de connexion basique
+GRANT CREATE SESSION TO ROLE_PATRON;
+COMMIT;
+
 
 
 COMMIT;
