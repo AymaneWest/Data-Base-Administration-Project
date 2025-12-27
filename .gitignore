@@ -17,6 +17,7 @@
 *_REMOTE_*.txt
 Backend/.idea
 .env
+./library-management-frontend
 ### Linux ###
 *~
 .\Backend\myenv\Scripts

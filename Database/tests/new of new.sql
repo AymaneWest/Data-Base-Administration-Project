@@ -1,6 +1,7 @@
 GRANT EXECUTE ON sp_checkout_item TO user_sysadmin;
 GRANT EXECUTE ON sp_checkout_item TO user_patron;
-
+select * from copies;
+select * from loans where copy_id=25;
 SELECT owner FROM all_objects 
 WHERE object_name = 'SP_CHECKOUT_ITEM' 
 AND object_type = 'PROCEDURE';
